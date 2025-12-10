@@ -15,7 +15,6 @@ export async function PUT(
     }
 
     const { id } = await params;
-<<<<<<< HEAD
     
     let body;
     try {
@@ -28,10 +27,6 @@ export async function PUT(
     }
     
     const { source, type, name, text, imageUrl, imageDescription } = body;
-=======
-    const body = await request.json();
-    const { source, type, name, text } = body;
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
     if (!source || !type || !name || !text) {
       return NextResponse.json(
@@ -47,11 +42,8 @@ export async function PUT(
         type: type.trim(),
         name: name.trim(),
         text: text.trim(),
-<<<<<<< HEAD
         imageUrl: imageUrl && imageUrl.trim() ? imageUrl.trim() : null,
         imageDescription: imageDescription && imageDescription.trim() ? imageDescription.trim() : null,
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       },
     });
 
@@ -79,7 +71,6 @@ export async function PUT(
     });
 
     return NextResponse.json(knowledge);
-<<<<<<< HEAD
   } catch (error: any) {
     console.error('Knowledge PUT error:', error);
     console.error('Error details:', {
@@ -96,12 +87,6 @@ export async function PUT(
         error: errorMessage,
         code: error?.code || 'UNKNOWN_ERROR',
       },
-=======
-  } catch (error) {
-    console.error('Knowledge PUT error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       { status: 500 }
     );
   }

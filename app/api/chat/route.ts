@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-<<<<<<< HEAD
 import { detectIntent, getStaffInfo, getFeeInfo, getRoomDirections, getClassTimetable, getExamTimetable } from '@/lib/chatHelpers';
-=======
-import { detectIntent, getStaffInfo, getFeeInfo, getRoomDirections } from '@/lib/chatHelpers';
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 import { searchKnowledge } from '@/lib/knowledge';
 import { callGroqLLM } from '@/lib/groqLlmService';
 
@@ -40,7 +36,6 @@ export async function POST(request: NextRequest) {
       if (intent === 'DIRECTIONS') {
         data.room = await getRoomDirections(message);
       }
-<<<<<<< HEAD
       if (intent === 'TIMETABLE_INFO') {
         data.classTimetable = await getClassTimetable(message);
       }
@@ -86,16 +81,6 @@ export async function POST(request: NextRequest) {
             msgLower.includes('test') || msgLower.includes('when is exam')) {
           data.examTimetable = await getExamTimetable(message);
         }
-=======
-      if (intent === 'ADMISSION_INFO' || intent === 'GENERAL_INFO') {
-        // For admission and general queries, also try to get staff/fees if relevant
-        if (message.toLowerCase().includes('facult') || message.toLowerCase().includes('staff')) {
-          data.staff = await getStaffInfo(message);
-        }
-        if (message.toLowerCase().includes('fee') || message.toLowerCase().includes('cost')) {
-          data.fees = await getFeeInfo(message);
-        }
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       }
 
       // ALWAYS search knowledge base first - it's the primary learning source
@@ -119,7 +104,6 @@ export async function POST(request: NextRequest) {
         source: k.source || 'Admin',
         type: k.type || 'General',
         snippet: k.text?.slice(0, 200) + (k.text?.length > 200 ? '...' : ''),
-<<<<<<< HEAD
         imageUrl: k.imageUrl || null,
         imageDescription: k.imageDescription || null,
       })) || []
@@ -159,11 +143,6 @@ export async function POST(request: NextRequest) {
       console.log('Image URLs:', images.map((img: any) => img.url));
     }
 
-=======
-      })) || []
-    );
-
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
     // Enhance data with metadata for better LLM understanding
     const enhancedData = {
       ...data,
@@ -174,11 +153,8 @@ export async function POST(request: NextRequest) {
         hasStaff: data.staff && data.staff.length > 0,
         hasFees: data.fees && data.fees.length > 0,
         hasRoom: !!data.room,
-<<<<<<< HEAD
         hasClassTimetable: data.classTimetable && data.classTimetable.length > 0,
         hasExamTimetable: data.examTimetable && data.examTimetable.length > 0,
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
         intent,
       },
     };
@@ -190,7 +166,6 @@ export async function POST(request: NextRequest) {
       data: enhancedData,
      });
 
-<<<<<<< HEAD
     // Clean up the answer to remove any image URLs that might have been included
     let cleanedAnswer = llmResponse.answer;
     if (images.length > 0) {
@@ -208,8 +183,6 @@ export async function POST(request: NextRequest) {
       cleanedAnswer = cleanedAnswer.replace(/\s+/g, ' ').trim();
     }
 
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
     // Get or create conversation
     let conversation;
     if (conversationId) {
@@ -235,21 +208,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-<<<<<<< HEAD
     // Save assistant response with images if available
-=======
-    // Save assistant response
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
         sender: 'assistant',
-<<<<<<< HEAD
         content: cleanedAnswer,
         images: images.length > 0 ? JSON.stringify(images) : null,
-=======
-        content: llmResponse.answer,
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       },
     });
 
@@ -258,7 +223,6 @@ export async function POST(request: NextRequest) {
       where: { id: conversation.id },
       data: { updatedAt: new Date() },
     });
-<<<<<<< HEAD
     
     console.log('📤 Sending response with:', {
       answerLength: cleanedAnswer.length,
@@ -270,12 +234,6 @@ export async function POST(request: NextRequest) {
       answer: cleanedAnswer,
       sources: llmResponse.sources,
       images: images, // Include images from knowledge base
-=======
-
-    return NextResponse.json({
-      answer: llmResponse.answer,
-      sources: llmResponse.sources,
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       conversationId: conversation.id,
     });
    } catch (error: any) {

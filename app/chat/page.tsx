@@ -9,14 +9,11 @@ interface Message {
   sender: 'user' | 'assistant';
   content: string;
   createdAt: string;
-<<<<<<< HEAD
   images?: Array<{
     url: string;
     description?: string;
     title?: string;
   }>;
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 }
 
 interface Conversation {
@@ -76,10 +73,7 @@ function formatMessageContent(content: string) {
 }
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-<<<<<<< HEAD
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -87,12 +81,9 @@ export default function ChatPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [showPolicyBanner, setShowPolicyBanner] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-<<<<<<< HEAD
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [clientUser, setClientUser] = useState<{ email: string; userType: string } | null>(null);
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -101,26 +92,19 @@ export default function ChatPage() {
     // Check if user has registered before allowing access to chat
     const isLoggedIn = localStorage.getItem('clientUserLoggedIn');
     const clientUserId = localStorage.getItem('clientUserId');
-<<<<<<< HEAD
     const clientUserEmail = localStorage.getItem('clientUserEmail') || '';
     const clientUserType = localStorage.getItem('clientUserType') || 'student';
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
     
     // Redirect to login if not logged in or missing required data
     if (isLoggedIn !== 'true' || !clientUserId) {
       localStorage.removeItem('clientUserLoggedIn');
       localStorage.removeItem('clientUserId');
       localStorage.removeItem('clientUserType');
-<<<<<<< HEAD
       localStorage.removeItem('clientUserEmail');
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       router.push('/');
       return;
     }
     setIsAuthorized(true);
-<<<<<<< HEAD
     setClientUser({ email: clientUserEmail, userType: clientUserType });
     loadConversations();
   }, [router]);
@@ -138,11 +122,6 @@ export default function ChatPage() {
     }
   }, [searchQuery, conversations]);
 
-=======
-    loadConversations();
-  }, [router]);
-
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   useEffect(() => {
     if (activeConversation) {
       loadConversationMessages(activeConversation.id);
@@ -178,10 +157,7 @@ export default function ChatPage() {
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
       setConversations(list);
-<<<<<<< HEAD
       setFilteredConversations(list);
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       if (list.length > 0 && !activeConversation) {
         setActiveConversation(list[0]);
       }
@@ -190,7 +166,6 @@ export default function ChatPage() {
     }
   };
 
-<<<<<<< HEAD
   const handleDeleteConversation = async (conversationId: string) => {
     const confirmed = window.confirm('Delete this conversation? This cannot be undone.');
     if (!confirmed) return;
@@ -234,13 +209,10 @@ export default function ChatPage() {
     }
   };
 
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   const loadConversationMessages = async (conversationId: string) => {
     try {
       const res = await fetch(`/api/conversations/${conversationId}`);
       const data = await res.json();
-<<<<<<< HEAD
       
       // Process messages to ensure images are properly formatted
       const processedMessages = (data.messages || []).map((msg: any) => {
@@ -278,9 +250,6 @@ export default function ChatPage() {
       
       console.log('📥 Loaded messages with images:', processedMessages.filter((m: any) => m.images).length);
       setMessages(processedMessages);
-=======
-      setMessages(data.messages || []);
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       setSources([]);
       // Scroll to bottom after loading messages
       setTimeout(() => scrollToBottom(), 300);
@@ -335,7 +304,6 @@ export default function ChatPage() {
       // Add user message back (will be saved by API)
       setMessages(prev => [...prev, tempUserMessage]);
 
-<<<<<<< HEAD
       // Add assistant response with images if available
       console.log('Received data from API:', { 
         hasAnswer: !!data.answer, 
@@ -390,16 +358,6 @@ export default function ChatPage() {
         console.log('📋 Messages after adding:', updated.length, 'messages, last one has images:', !!updated[updated.length - 1].images);
         return updated;
       });
-=======
-       // Add assistant response
-      const assistantMessage: Message = {
-        id: `msg-${Date.now()}`,
-        sender: 'assistant',
-         content: data.answer || 'Sorry, I could not generate a response. Please try again.',
-         createdAt: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
       // Set sources if available
        if (data.sources && Array.isArray(data.sources)) {
@@ -445,7 +403,6 @@ export default function ChatPage() {
     setInputMessage(suggestion);
   };
 
-<<<<<<< HEAD
   const handleNewConversation = async () => {
     try {
       const res = await fetch('/api/conversations', {
@@ -479,8 +436,6 @@ export default function ChatPage() {
     }
   };
 
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   const quickLinks = [
     { icon: 'school', label: 'Academics' },
     { icon: 'calendar_month', label: 'Timetable' },
@@ -521,17 +476,13 @@ export default function ChatPage() {
               className="modern-input w-full rounded-2xl py-3 pl-10 pr-4 text-sm text-charcoal placeholder-charcoal/60"
               placeholder="Search conversations..."
               type="text"
-<<<<<<< HEAD
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
             />
           </div>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto px-4">
           <div>
-<<<<<<< HEAD
             <div className="flex items-center justify-between px-2 mb-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-charcoal/50">
                 Conversations
@@ -552,13 +503,6 @@ export default function ChatPage() {
                 </li>
               ) : (
                 filteredConversations.map((conv) => (
-=======
-            <h3 className="px-2 text-xs font-semibold uppercase tracking-wider text-charcoal/50 mb-2">
-              Conversations
-            </h3>
-            <ul className="flex flex-col gap-1">
-              {conversations.map((conv) => (
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
                 <li
                   key={conv.id}
                   onClick={() => setActiveConversation(conv)}
@@ -576,7 +520,6 @@ export default function ChatPage() {
                   >
                     chat_bubble
                   </span>
-<<<<<<< HEAD
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm leading-tight truncate ${
@@ -602,19 +545,6 @@ export default function ChatPage() {
                 </li>
                 ))
               )}
-=======
-                  <p
-                    className={`text-sm leading-tight truncate ${
-                      activeConversation?.id === conv.id
-                        ? 'text-primary font-semibold'
-                        : 'text-charcoal font-medium'
-                    }`}
-                  >
-                    {conv.title}
-                  </p>
-                </li>
-              ))}
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
             </ul>
           </div>
           <div>
@@ -638,7 +568,6 @@ export default function ChatPage() {
             </ul>
           </div>
         </div>
-<<<<<<< HEAD
         {/* User Info Card and Settings Button */}
         <div className="p-4 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.18)' }}>
           <div className="mb-3 p-3 rounded-xl glass-card" style={{ background: 'rgba(255, 255, 255, 0.2)', backdropFilter: 'blur(10px)' }}>
@@ -657,8 +586,6 @@ export default function ChatPage() {
             <span>Settings</span>
           </Link>
         </div>
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       </aside>
 
       {/* Main Chat Area */}
@@ -769,7 +696,6 @@ export default function ChatPage() {
                     {formatMessageContent(message.content)}
                   </div>
                 </div>
-<<<<<<< HEAD
                 {/* Display images if available - simplified, no extras */}
                 {message.sender === 'assistant' && message.images && Array.isArray(message.images) && message.images.length > 0 && (
                   <div className="flex flex-col gap-2 mt-2">
@@ -813,8 +739,6 @@ export default function ChatPage() {
                     })}
                   </div>
                 )}
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
                </div>
               {message.sender === 'user' && (
                 <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-12 shrink-0 relative overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', boxShadow: '0 8px 30px rgba(79, 172, 254, 0.3)' }}>
@@ -827,15 +751,9 @@ export default function ChatPage() {
 
           {isLoading && (
             <div className="flex items-end gap-3">
-<<<<<<< HEAD
               <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-12 shrink-0 relative overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 8px 30px rgba(102, 126, 234, 0.3)' }}>
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
                 <span className="material-symbols-outlined text-white relative z-10 text-xl">support_agent</span>
-=======
-              <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full w-12 shrink-0 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 8px 30px rgba(102, 126, 234, 0.3)' }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
-                <span className="material-symbols-outlined text-white relative z-10 m-auto block text-xl">support_agent</span>
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
               </div>
               <div className="flex items-center justify-center rounded-2xl rounded-bl-none px-5 py-4 glass-card" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
                 <div className="flex items-center gap-2">
@@ -906,31 +824,6 @@ export default function ChatPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>
           </div>
-<<<<<<< HEAD
-=======
-          <nav className="flex h-16 w-full items-center justify-around glass-card" style={{ background: 'rgba(255, 255, 255, 0.2)', backdropFilter: 'blur(15px)', borderTop: '1px solid rgba(255, 255, 255, 0.18)' }}>
-            <a className="flex flex-col items-center gap-1 transition-all hover:scale-110" style={{ color: '#667eea' }} href="#">
-              <span className="material-symbols-outlined text-2xl">chat</span>
-              <span className="text-xs font-semibold">Chat</span>
-            </a>
-            <a className="flex flex-col items-center gap-1 text-charcoal/60 hover:scale-110 transition-all" style={{ color: 'inherit' }} href="#">
-              <span className="material-symbols-outlined text-2xl">school</span>
-              <span className="text-xs font-medium">Academics</span>
-            </a>
-            <a className="flex flex-col items-center gap-1 text-charcoal/60 hover:scale-110 transition-all" style={{ color: 'inherit' }} href="#">
-              <span className="material-symbols-outlined text-2xl">local_library</span>
-              <span className="text-xs font-medium">Library</span>
-            </a>
-            <Link
-              href="/settings"
-              className="flex flex-col items-center gap-1 text-charcoal/60 hover:scale-110 transition-all"
-              style={{ color: 'inherit' }}
-            >
-              <span className="material-symbols-outlined text-2xl">settings</span>
-              <span className="text-xs font-medium">Settings</span>
-            </Link>
-          </nav>
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
         </footer>
       </div>
     </div>

@@ -62,18 +62,10 @@ export default function AdminLayout({
     { href: '/admin/fees', icon: 'receipt_long', label: 'Fees' },
     { href: '/admin/rooms', icon: 'meeting_room', label: 'Rooms' },
     { href: '/admin/knowledge', icon: 'auto_stories', label: 'Knowledge Base' },
-<<<<<<< HEAD
     { href: '/admin/academics', icon: 'school', label: 'Academics' },
     { href: '/admin/logs', icon: 'description', label: 'Audit Logs' },
       { href: '/admin/class-timetable', icon: 'schedule', label: 'Class Timetable' },
       { href: '/admin/exam-timetable', icon: 'event', label: 'Exam Timetable' },
-=======
-    { href: '/admin/client-users', icon: 'person', label: 'Client Users' },
-    { href: '/admin/logs', icon: 'description', label: 'Audit Logs' },
-      { href: '/admin/class-timetable', icon: 'schedule', label: 'Class Timetable' },
-      { href: '/admin/exam-timetable', icon: 'event', label: 'Exam Timetable' },
-      { href: '/admin/settings', icon: 'settings', label: 'Settings' },
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   ];
 
   return (
@@ -180,7 +172,6 @@ export default function AdminLayout({
             <span className="material-symbols-outlined text-xl" style={{ color: pathname === '/admin/roles' ? '#667eea' : 'inherit' }}>admin_panel_settings</span>
             <span className="font-semibold" style={{ color: pathname === '/admin/roles' ? '#667eea' : 'inherit' }}>Roles</span>
           </Link>
-<<<<<<< HEAD
           <Link
             href="/admin/settings"
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover-lift ${
@@ -193,8 +184,6 @@ export default function AdminLayout({
             <span className="material-symbols-outlined text-xl" style={{ color: pathname === '/admin/settings' ? '#667eea' : 'inherit' }}>settings</span>
             <span className="font-semibold" style={{ color: pathname === '/admin/settings' ? '#667eea' : 'inherit' }}>Settings</span>
           </Link>
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
         </nav>
         <div className="p-4 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.18)' }}>
           <div className="mb-3 p-3 rounded-xl glass-card" style={{ background: 'rgba(255, 255, 255, 0.2)', backdropFilter: 'blur(10px)' }}>
