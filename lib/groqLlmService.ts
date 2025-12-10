@@ -24,8 +24,11 @@ export async function callGroqLLM(
   const hasStaff = data?.staff && Array.isArray(data.staff) && data.staff.length > 0;
   const hasFees = data?.fees && Array.isArray(data.fees) && data.fees.length > 0;
   const hasRoom = data?.room;
+<<<<<<< HEAD
   const hasClassTimetable = data?.classTimetable && Array.isArray(data.classTimetable) && data.classTimetable.length > 0;
   const hasExamTimetable = data?.examTimetable && Array.isArray(data.examTimetable) && data.examTimetable.length > 0;
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
   // Format knowledge base entries for better understanding
   let knowledgeSection = '';
@@ -38,6 +41,7 @@ Entry ${idx + 1}:
 - Type: ${k.type || 'General'}
 - Source: ${k.source || 'Admin'}
 - Content: ${k.text || ''}
+<<<<<<< HEAD
 ${k.imageUrl ? `- Image Available: Yes (image will be displayed automatically - DO NOT include the URL in your response)` : ''}
 ${k.imageDescription ? `- Image Description: ${k.imageDescription}` : ''}
 `).join('\n')}
@@ -69,6 +73,18 @@ ${data.staff.map((staff: any) => ({
 })).map((s: any, idx: number) => `Staff ${idx + 1}: ${JSON.stringify(s, null, 2)}`).join('\n\n')}
 
 CRITICAL: Use names EXACTLY as shown above. If a name includes "Dr", "Mr", "Mrs", "Ms", etc., use it. If it doesn't, DO NOT add any title.
+=======
+`).join('\n')}
+`;
+  }
+
+  // Format other data
+  let staffSection = '';
+  if (hasStaff) {
+    staffSection = `
+👥 STAFF INFORMATION:
+${JSON.stringify(data.staff, null, 2)}
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 `;
   }
 
@@ -88,6 +104,7 @@ ${JSON.stringify(data.room, null, 2)}
 `;
   }
 
+<<<<<<< HEAD
   let classTimetableSection = '';
   if (hasClassTimetable) {
     classTimetableSection = `
@@ -125,6 +142,11 @@ ${data.examTimetable.map((exam: any) => ({
   // Detect if this is a simple greeting
   const isGreeting = intent === 'GREETING';
   const hasData = hasKnowledge || hasStaff || hasFees || hasRoom || hasClassTimetable || hasExamTimetable;
+=======
+  // Detect if this is a simple greeting
+  const isGreeting = intent === 'GREETING';
+  const hasData = hasKnowledge || hasStaff || hasFees || hasRoom;
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
   const systemPrompt = `
 You are a friendly and helpful campus assistant chatbot for Providence College of Engineering (PCE).
@@ -160,6 +182,7 @@ ${isGreeting ? `
    - Be specific with details (names, amounts, locations, etc.) when relevant
    - Don't over-explain - give just enough information to answer the question
 
+<<<<<<< HEAD
 3. DATA USAGE - CRITICAL ACCURACY RULES:
    
    **NAMES AND TITLES (MOST IMPORTANT):**
@@ -201,6 +224,12 @@ ${isGreeting ? `
    - Don't modify, summarize, or paraphrase knowledge base content
    - Use names, titles, and all details exactly as written
    
+=======
+3. DATA USAGE:
+   - Use staff information to list relevant staff members naturally
+   - Use fee information to provide specific amounts and categories
+   - Use room information to give clear directions
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
    - Only include data that's actually relevant to the question
 
 4. CLARITY AND UNDERSTANDING:
@@ -271,6 +300,7 @@ ${feesSection}
 
 ${roomSection}
 
+<<<<<<< HEAD
 ${classTimetableSection}
 
 ${examTimetableSection}
@@ -305,6 +335,17 @@ INSTRUCTIONS:
 - Only provide the information that's relevant to their question
 - Keep it clear and easy to understand
 - Format timetable data clearly with day, time, subject, faculty (exact name), and room information
+=======
+${!hasKnowledge && !hasStaff && !hasFees && !hasRoom ? 'No specific data found in database. Respond naturally and suggest contacting the office for specific details.' : ''}
+
+INSTRUCTIONS:
+- Answer the user's question naturally and conversationally
+- If knowledge base content is available, use it as your primary source
+- Be human-like and friendly - talk like a real person would
+- Don't be overly formal or robotic
+- Only provide the information that's relevant to their question
+- Keep it clear and easy to understand
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   `.trim();
 
   if (!groq) {

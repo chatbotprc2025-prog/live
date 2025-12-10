@@ -82,7 +82,10 @@ model Message {
   conversationId String       @map("conversation_id")
   sender         String       // "user" or "assistant"
   content        String
+<<<<<<< HEAD
   images         String?      // JSON array of image objects
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   createdAt      DateTime     @default(now()) @map("created_at")
   
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -91,6 +94,7 @@ model Message {
 }
 
 model Knowledge {
+<<<<<<< HEAD
   id              String   @id @default(cuid())
   source          String
   type            String
@@ -100,6 +104,15 @@ model Knowledge {
   imageDescription String? @map("image_description")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
+=======
+  id        String   @id @default(cuid())
+  source    String
+  type      String
+  name      String
+  text      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
   @@map("knowledge")
 }

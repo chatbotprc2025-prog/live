@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+<<<<<<< HEAD
     let body;
     try {
       body = await request.json();
@@ -63,6 +64,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { source, type, name, text, imageUrl, imageDescription } = body;
+=======
+    const body = await request.json();
+    const { source, type, name, text } = body;
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
     if (!source || !type || !name || !text) {
       return NextResponse.json(
@@ -77,8 +82,11 @@ export async function POST(request: NextRequest) {
         type: type.trim(),
         name: name.trim(),
         text: text.trim(),
+<<<<<<< HEAD
         imageUrl: imageUrl && imageUrl.trim() ? imageUrl.trim() : null,
         imageDescription: imageDescription && imageDescription.trim() ? imageDescription.trim() : null,
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       },
     });
 
@@ -106,6 +114,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(knowledge, { status: 201 });
+<<<<<<< HEAD
   } catch (error: any) {
     console.error('Knowledge POST error:', error);
     console.error('Error details:', {
@@ -122,6 +131,12 @@ export async function POST(request: NextRequest) {
         error: errorMessage,
         code: error?.code || 'UNKNOWN_ERROR',
       },
+=======
+  } catch (error) {
+    console.error('Knowledge POST error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       { status: 500 }
     );
   }

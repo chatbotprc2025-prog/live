@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+<<<<<<< HEAD
 const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -23,6 +24,13 @@ function buildPrismaClient() {
 }
 
 const prisma = buildPrismaClient();
+=======
+const bcrypt = require('bcryptjs');
+
+const prisma = new PrismaClient({
+  log: ['error', 'warn'],
+});
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
 async function createAdmin() {
   try {

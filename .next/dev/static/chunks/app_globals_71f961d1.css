@@ -579,6 +579,10 @@
     }
   }
 
+  .m-auto {
+    margin: auto;
+  }
+
   .mx-auto {
     margin-inline: auto;
   }

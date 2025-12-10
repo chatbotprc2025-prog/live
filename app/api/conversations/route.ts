@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+<<<<<<< HEAD
 // POST - Create a new conversation
 export async function POST(request: NextRequest) {
   try {
@@ -47,3 +48,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff

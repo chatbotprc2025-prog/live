@@ -8,8 +8,11 @@ interface Knowledge {
   type: string;
   name: string;
   text: string;
+<<<<<<< HEAD
   imageUrl?: string | null;
   imageDescription?: string | null;
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   createdAt: string;
   updatedAt: string;
 }
@@ -26,11 +29,15 @@ export default function KnowledgeManagementPage() {
     type: '',
     name: '',
     text: '',
+<<<<<<< HEAD
     imageUrl: '',
     imageDescription: '',
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+=======
+  });
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
   const loadKnowledge = async () => {
     try {
@@ -64,6 +71,7 @@ export default function KnowledgeManagementPage() {
         : '/api/admin/knowledge';
       const method = editingKnowledge ? 'PUT' : 'POST';
       
+<<<<<<< HEAD
       // Prepare data - ensure empty strings become null for optional fields
       const submitData = {
         ...formData,
@@ -110,6 +118,31 @@ export default function KnowledgeManagementPage() {
     } catch (error: any) {
       console.error('Failed to save knowledge:', error);
       alert(error.message || 'Failed to save knowledge entry. Please check the console for details.');
+=======
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        setIsModalOpen(false);
+        setEditingKnowledge(null);
+        setFormData({
+          source: '',
+          type: '',
+          name: '',
+          text: '',
+        });
+        loadKnowledge();
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to save knowledge entry');
+      }
+    } catch (error) {
+      console.error('Failed to save knowledge:', error);
+      alert('Failed to save knowledge entry');
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
     }
   };
 
@@ -120,6 +153,7 @@ export default function KnowledgeManagementPage() {
       type: item.type,
       name: item.name,
       text: item.text,
+<<<<<<< HEAD
       imageUrl: item.imageUrl || '',
       imageDescription: item.imageDescription || '',
     });
@@ -173,6 +207,12 @@ export default function KnowledgeManagementPage() {
     setImagePreview(null);
   };
 
+=======
+    });
+    setIsModalOpen(true);
+  };
+
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this knowledge entry?')) return;
     
@@ -211,8 +251,12 @@ export default function KnowledgeManagementPage() {
         <button
           onClick={() => {
             setEditingKnowledge(null);
+<<<<<<< HEAD
             setFormData({ source: '', type: '', name: '', text: '', imageUrl: '', imageDescription: '' });
             setImagePreview(null);
+=======
+            setFormData({ source: '', type: '', name: '', text: '' });
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
             setIsModalOpen(true);
           }}
           className="btn-primary px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all"
@@ -270,6 +314,7 @@ export default function KnowledgeManagementPage() {
                   </div>
                   <h3 className="text-lg font-bold text-charcoal mb-2">{item.name}</h3>
                   <p className="text-gray-700 text-sm line-clamp-3">{item.text}</p>
+<<<<<<< HEAD
                   {item.imageUrl && (
                     <div className="mt-3">
                       <img
@@ -282,6 +327,8 @@ export default function KnowledgeManagementPage() {
                       )}
                     </div>
                   )}
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
                   <p className="text-xs text-gray-500 mt-2">
                     Updated: {new Date(item.updatedAt).toLocaleDateString()}
                   </p>
@@ -376,6 +423,7 @@ export default function KnowledgeManagementPage() {
                   This content will be used by the chatbot to answer student questions.
                 </p>
               </div>
+<<<<<<< HEAD
 
               {/* Image Upload Section */}
               <div>
@@ -451,6 +499,8 @@ export default function KnowledgeManagementPage() {
                   </p>
                 </div>
               )}
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
               <div className="flex gap-3 justify-end pt-4">
                 <button
                   type="button"

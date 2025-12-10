@@ -65,6 +65,7 @@ export function detectIntent(message: string): string {
     return 'ADMISSION_INFO';
   }
   
+<<<<<<< HEAD
   // Timetable intent
   if (lowerMessage.includes('timetable') || lowerMessage.includes('schedule') ||
       lowerMessage.includes('class time') || lowerMessage.includes('when is class') ||
@@ -79,6 +80,8 @@ export function detectIntent(message: string): string {
     return 'EXAM_INFO';
   }
   
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   return 'GENERAL_INFO';
 }
 
@@ -195,6 +198,7 @@ export async function getRoomDirections(query: string): Promise<any | null> {
   return roomByBuilding || null;
 }
 
+<<<<<<< HEAD
 /**
  * Query class timetable information from database
  */
@@ -264,3 +268,5 @@ export async function getExamTimetable(query: string): Promise<any[]> {
   return filtered.slice(0, 20);
 }
 
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff

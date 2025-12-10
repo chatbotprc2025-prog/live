@@ -8,6 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+<<<<<<< HEAD
 
     if (!id) {
       return NextResponse.json(
@@ -16,6 +17,8 @@ export async function GET(
       );
     }
 
+=======
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
     const conversation = await prisma.conversation.findUnique({
       where: { id },
       include: {
@@ -29,6 +32,7 @@ export async function GET(
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
+<<<<<<< HEAD
     // Parse images from JSON string for each message
     const conversationWithParsedImages = {
       ...conversation,
@@ -94,6 +98,13 @@ export async function DELETE(
 
     return NextResponse.json(
       { error: error?.message || 'Internal server error' },
+=======
+    return NextResponse.json(conversation);
+  } catch (error) {
+    console.error('Conversation GET error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+>>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       { status: 500 }
     );
   }
