@@ -2,6 +2,7 @@
   "/admin/login/page": "app/admin/login/page.js",
   "/admin/page": "app/admin/page.js",
   "/admin/settings/page": "app/admin/settings/page.js",
+  "/api/admin/auth/login/route": "app/api/admin/auth/login/route.js",
   "/api/admin/auth/verify/route": "app/api/admin/auth/verify/route.js",
   "/api/conversations/[id]/route": "app/api/conversations/[id]/route.js",
   "/api/conversations/route": "app/api/conversations/route.js",
