@@ -1,0 +1,73 @@
+[00:00:02.561] Server  LOG      ✓ Ready in 1949ms
+[00:00:05.699] Server  LOG      ○ Compiling /chat ...
+[00:00:08.255] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:08.396] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:08.403] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:12.382] Browser LOG     📥 Loaded messages with images: 0
+[00:00:26.784] Server  LOG     🚀 Initializing adaptive learning engine...
+[00:00:26.789] Server  LOG     🧠 Learning from knowledge base...
+[00:00:26.804] Server  LOG     ✅ Learned from 2 knowledge entries
+[00:00:26.806] Server  LOG        - Extracted 2 patterns
+[00:00:26.807] Server  LOG        - Found 2 term relationships
+[00:00:26.807] Server  LOG        - Built 0 knowledge relationships
+[00:00:26.808] Server  LOG     ✅ Learning engine ready
+[00:00:26.817] Server  LOG     Knowledge entries with images check: [{...},{...}]
+[00:00:26.818] Server  LOG     Images extracted: 1
+[00:00:26.820] Server  LOG     Image URLs: ["/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg"]
+[00:00:26.841] Server  ERROR   (node:25288) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[00:00:27.795] Server  LOG     📤 Sending response with: {}
+[00:00:28.181] Browser LOG     Received data from API: {"hasAnswer":true,"hasImages":true,"imageCount":1,"images":[{"description":"Providence College of Engineering Logo","title":"Providence College of Engineering Logo","url":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg"}]}
+[00:00:28.181] Browser LOG     ✅ Processed images for display: [{"description":"Providence College of Engineering Logo","title":"Providence College of Engineering Logo","url":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg"}]
+[00:00:28.181] Browser LOG     📝 Assistant message created: {"hasImages":true,"imageCount":1,"images":[{"description":"Providence College of Engineering Logo","title":"Providence College of Engineering Logo","url":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg"}],"messageId":"msg-1765371135608"}
+[00:00:28.181] Browser LOG     📋 Messages after adding: 8 messages, last one has images: true
+[00:00:28.181] Browser LOG     📋 Messages after adding: 8 messages, last one has images: true
+[00:00:28.181] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"msg-1765371135608"}
+[00:00:28.181] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"msg-1765371135608"}
+[00:00:28.181] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"msg-1765371135608"}
+[00:00:28.181] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"msg-1765371135608"}
+[00:00:28.181] Browser LOG     ✅ Image loaded successfully: /uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg
+[00:00:28.181] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"msg-1765371135608"}
+[00:00:28.181] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"msg-1765371135608"}
+[00:00:28.181] Browser LOG     📥 Loaded messages with images: 1
+[00:00:28.182] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:00:28.182] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:00:28.182] Browser LOG     ✅ Image loaded successfully: /uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg
+[00:04:32.208] Browser LOG     📥 Loaded messages with images: 1
+[00:04:32.208] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:04:32.208] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:04:32.208] Browser LOG     ✅ Image loaded successfully: /uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg
+[00:04:32.208] Browser LOG     📥 Loaded messages with images: 1
+[00:04:32.208] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:04:32.208] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:06:49.063] Server  LOG      ✓ Compiled in 163ms
+[00:06:49.387] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:06:49.387] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:06:54.308] Server  LOG      ✓ Compiled in 439ms
+[00:06:55.376] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:06:55.376] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:07:14.795] Server  LOG      ✓ Compiled in 191ms
+[00:07:15.378] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:07:15.378] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:07:59.741] Browser LOG     📥 Loaded messages with images: 0
+[00:08:14.157] Server  LOG      ✓ Compiled in 315ms
+[00:08:40.593] Browser LOG     📥 Loaded messages with images: 0
+[00:08:42.723] Browser LOG     📥 Loaded messages with images: 0
+[00:08:46.834] Browser LOG     📥 Loaded messages with images: 0
+[00:08:46.835] Browser LOG     📥 Loaded messages with images: 0
+[00:08:46.835] Browser LOG     📥 Loaded messages with images: 0
+[00:08:51.557] Browser LOG     📥 Loaded messages with images: 0
+[00:08:51.557] Browser LOG     📥 Loaded messages with images: 0
+[00:08:51.557] Browser LOG     📥 Loaded messages with images: 0
+[00:08:55.944] Browser LOG     📥 Loaded messages with images: 1
+[00:08:55.944] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:08:55.944] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:08:55.944] Browser LOG     ✅ Image loaded successfully: /uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg
+[00:08:55.944] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:08:55.944] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:08:55.944] Browser LOG     📥 Loaded messages with images: 1
+[00:08:55.944] Browser LOG     📥 Loaded messages with images: 1
+[00:08:55.944] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:08:55.944] Browser LOG     🖼️ Rendering image: {"idx":0,"imageUrl":"/uploads/knowledge/knowledge-1765369802264-pkmvanysms.jpg","messageId":"cmj00e6150001igjbce1x4qr1"}
+[00:12:49.806] Server  LOG      ✓ Compiled in 145ms
+[00:12:53.056] Server  LOG      ✓ Compiled in 186ms
