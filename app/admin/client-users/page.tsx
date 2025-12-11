@@ -18,10 +18,7 @@ export default function ClientUsersPage() {
   const [filter, setFilter] = useState<UserType>('all');
   const [selectedUser, setSelectedUser] = useState<ClientUser | null>(null);
   const [error, setError] = useState('');
-<<<<<<< HEAD
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
 
   // Fetch users based on filter
   useEffect(() => {
@@ -72,7 +69,6 @@ export default function ClientUsersPage() {
     }
   };
 
-<<<<<<< HEAD
   // Delete user
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
@@ -106,8 +102,6 @@ export default function ClientUsersPage() {
     }
   };
 
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
@@ -203,7 +197,6 @@ export default function ClientUsersPage() {
                         {new Date(user.createdAt).toLocaleDateString()} {new Date(user.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-6 py-4 text-sm">
-<<<<<<< HEAD
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => setSelectedUser(user)}
@@ -219,14 +212,6 @@ export default function ClientUsersPage() {
                             {deletingUserId === user.id ? 'Deleting...' : 'Delete'}
                           </button>
                         </div>
-=======
-                        <button
-                          onClick={() => setSelectedUser(user)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          View
-                        </button>
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
                       </td>
                     </tr>
                   ))}

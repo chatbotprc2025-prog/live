@@ -44,10 +44,7 @@ export default function OnboardingPage() {
       localStorage.setItem('clientUserLoggedIn', 'true');
       localStorage.setItem('clientUserId', data.user.id);
       localStorage.setItem('clientUserType', data.user.userType);
-<<<<<<< HEAD
       localStorage.setItem('clientUserEmail', formData.email);
-=======
->>>>>>> cb6b7604b1cc40647a2c26fd3c0d15f8fd157eff
       setPageView('onboarding');
     } catch (error: any) {
       setErrorMessage(error.message || 'An error occurred');
