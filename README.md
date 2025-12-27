@@ -7,6 +7,8 @@ A production-ready full-stack web application consisting of a Student Client App
 ### Student Client App
 - **Onboarding Screen**: Welcome experience with feature highlights
 - **Chat Interface**: Three-column layout with conversations sidebar, chat area, and sources view
+- **Voice Input**: Speech-to-text using OpenAI Whisper for voice messages
+- **Voice Output**: Text-to-speech using OpenAI TTS for assistant responses
 - **RAG Sources Display**: Shows document sources for chatbot answers
 - **Quick Links**: Easy access to Academics, Timetable, Fees, Library, Campus Map, Contacts
 - **Mobile Responsive**: Bottom navigation bar for mobile devices
@@ -27,7 +29,8 @@ A production-ready full-stack web application consisting of a Student Client App
 - **Backend**: Next.js API Routes
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: JWT with HttpOnly cookies
-- **LLM Integration**: OpenAI API (GPT-4o-mini by default)
+- **LLM Integration**: Groq Llama 3.1 8B Instant
+- **Voice Services**: OpenAI Whisper (STT) and OpenAI TTS (text-to-speech)
 
 ## Getting Started
 
@@ -53,8 +56,8 @@ Create a `.env` file in the root directory:
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/campus_assistant"
 JWT_SECRET="your-secret-key-change-in-production"
-OPENAI_API_KEY="your-openai-api-key"
-OPENAI_MODEL="gpt-4o-mini"  # Optional, defaults to gpt-4o-mini
+GROQ_API_KEY="your-groq-api-key"
+# OPENAI_API_KEY is NOT required - voice features use free browser APIs!
 ```
 
 4. Set up the database:
@@ -74,7 +77,7 @@ npm run db:seed
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+6. Open [http://localhost:3000](http://localhost:3000/admin/login) in your browser.
 
 ## Default Credentials
 
@@ -100,6 +103,7 @@ campus-assistant/
 │   ├── api/                # API routes
 │   │   ├── chat/           # Chat endpoint
 │   │   ├── conversations/  # Conversation endpoints
+│   │   ├── voice/           # Voice API endpoints (STT/TTS)
 │   │   └── admin/          # Admin API endpoints
 │   ├── layout.tsx          # Root layout
 │   └── page.tsx            # Onboarding page
@@ -132,6 +136,8 @@ The application uses the following main models:
 - `POST /api/chat` - Send chat message
 - `GET /api/conversations` - List conversations
 - `GET /api/conversations/[id]` - Get conversation with messages
+- `POST /api/voice/stt` - Speech-to-text transcription (Optional - currently using free browser API)
+- `POST /api/voice/tts` - Text-to-speech audio generation (Optional - currently using free browser API)
 
 ### Admin Endpoints
 - `POST /api/admin/auth/login` - Admin login
@@ -149,6 +155,32 @@ The Groq integration lives in `lib/groqLlmService.ts`:
 - Prioritizes knowledge-base content and admin-provided data
 - Includes tone, formatting, and greeting-handling rules
 - Requires `GROQ_API_KEY` in your `.env`
+
+## Voice Features (100% FREE - No API Keys Required!)
+
+The application includes voice input and output capabilities using browser-native Web Speech API:
+
+### Speech-to-Text (STT)
+- **Service**: Browser Web Speech API (FREE)
+- **Usage**: Click the microphone button in the chat interface
+- **Features**: 
+  - Real-time speech recognition
+  - Automatic transcription to text
+  - Works offline (browser-based)
+  - No API keys or costs
+  - **Browser Support**: Chrome, Edge, Safari (best support)
+
+### Text-to-Speech (TTS)
+- **Service**: Browser Speech Synthesis API (FREE)
+- **Usage**: Click the speaker icon on any assistant message to hear it read aloud
+- **Features**:
+  - Natural-sounding voice synthesis
+  - Multiple voice options (browser-dependent)
+  - Instant playback
+  - No API keys or costs
+  - **Browser Support**: All modern browsers
+
+**Note**: Both features are completely free and work entirely in the browser. No server-side processing or API keys required!
 
 ## Intent Detection
 
@@ -186,6 +218,17 @@ npm run db:push
 npm run build
 npm start
 ```
+
+## Deployment
+
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+**Quick Deploy Options:**
+- **Vercel** (Recommended): Zero-config Next.js deployment
+- **Railway**: Full-stack with PostgreSQL included
+- **Render**: Free tier available
+- **Docker**: Self-hosted with Docker Compose
+- **VPS**: Traditional server setup with Nginx
 
 ## Notes
 

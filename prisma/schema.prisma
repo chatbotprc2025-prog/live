@@ -24,16 +24,17 @@ model User {
 }
 
 model Staff {
-  id          String   @id @default(cuid())
-  name        String
-  department  String
-  designation String
-  email       String?
-  phone       String?
-  status      String   @default("ACTIVE") // ACTIVE, INACTIVE
-  avatarUrl   String?  @map("avatar_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(cuid())
+  name          String
+  department    String
+  designation  String
+  email         String?
+  phone         String?
+  status        String   @default("ACTIVE") // ACTIVE, INACTIVE
+  avatarUrl     String?  @map("avatar_url")
+  qualifications String? // Staff qualifications
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
   
   @@map("staff")
 }
@@ -67,12 +68,13 @@ model Room {
 }
 
 model Conversation {
-  id        String    @id @default(cuid())
-  title     String
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id          String    @id @default(cuid())
+  title       String
+  clientUserId String? @map("client_user_id") // Associate with client user
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
   
-  messages  Message[]
+  messages    Message[]
   
   @@map("conversations")
 }
@@ -119,13 +121,29 @@ model AuditLog {
 }
 
 model ClientUser {
-  id        String   @id @default(cuid())
-  mobile    String
-  email     String
-  userType  String   // "student" | "guest" | "parent"
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  name         String?
+  mobile       String
+  email        String   @unique
+  userType     String   // "student" | "guest" | "parent"
+  emailVerified Boolean @default(false) @map("email_verified")
+  createdAt    DateTime @default(now()) @map("created_at")
   
   @@map("client_users")
+}
+
+model EmailOTP {
+  id         String   @id @default(cuid())
+  email      String
+  otpHash    String   @map("otp_hash")
+  expiresAt  DateTime @map("expires_at")
+  attempts   Int      @default(0)
+  verified   Boolean  @default(false)
+  lastSentAt DateTime @map("last_sent_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  @@index([email])
+  @@map("email_otps")
 }
 
 model TimeTable {

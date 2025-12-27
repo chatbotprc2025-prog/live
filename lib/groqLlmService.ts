@@ -1,9 +1,11 @@
 import Groq from 'groq-sdk';
+import { getLanguageInstruction } from './languageDetection';
 
 export type LlmContext = {
   intent: string;
   userMessage: string;
   data?: any; // structured data from DB / knowledge search
+  language?: string; // detected language code (en, ml, hi, ta, etc.)
 };
 
 const groqApiKey = process.env.GROQ_API_KEY;
@@ -17,7 +19,10 @@ const groq = groqApiKey ? new Groq({ apiKey: groqApiKey }) : null;
 export async function callGroqLLM(
   ctx: LlmContext
 ): Promise<{ answer: string; sources?: any[] }> {
-  const { intent, userMessage, data } = ctx;
+  const { intent, userMessage, data, language = 'en' } = ctx;
+  
+  // Get language instruction for LLM
+  const languageInstruction = getLanguageInstruction(language);
 
   // Prioritize knowledge base content
   const hasKnowledge = data?.knowledge && Array.isArray(data.knowledge) && data.knowledge.length > 0;
@@ -31,7 +36,7 @@ export async function callGroqLLM(
   let knowledgeSection = '';
   if (hasKnowledge) {
     knowledgeSection = `
-📚 KNOWLEDGE BASE CONTENT (Admin-provided information - USE THIS AS PRIMARY SOURCE):
+📚 KNOWLEDGE BASE CONTENT (Admin-provided information - EQUAL PRIORITY with other sources):
 ${data.knowledge.map((k: any, idx: number) => `
 Entry ${idx + 1}:
 - Title: ${k.name || 'Untitled'}
@@ -45,53 +50,61 @@ ${k.imageDescription ? `- Image Description: ${k.imageDescription}` : ''}
 CRITICAL: Use ALL information from knowledge base EXACTLY as provided. This includes names, titles, designations, image descriptions, and any other details. DO NOT modify, add, or remove any information. If a name in the knowledge base includes "Dr", "Mr", "Mrs", "Ms", or any other title, use it exactly. If it doesn't include a title, DO NOT add one.
 
 IMAGES - CRITICAL RULES:
-- When an image is available in the knowledge base, you can mention it naturally in your response
-- Example: "Here's the information, and I've included an image below that shows [description]."
+- Images are ONLY shown when they are HIGHLY RELEVANT to the user's question
+- When an image is available and relevant, mention it naturally in your response
+- Example: "Here's the information about [topic], and I've included an image that shows [description]."
 - Use the image description to provide context about what the image contains
 - The image will be displayed automatically to the user - you do NOT need to include the image URL or path
 - DO NOT include image URLs, file paths, or image file names in your response (like "/uploads/knowledge/..." or ".jpg" files)
 - DO NOT write "Here's the image of..." followed by a URL or path
+- DO NOT mention images if they're not relevant to the question - only mention when the image actually helps answer the question
 - Simply mention that an image is available and describe what it shows - the system will display it automatically
+- If the image is not relevant to the question, don't mention it at all
 `;
   }
 
-  // Format other data - use exact data without modifications
+  // Format other data - use exact data without modifications (EQUAL PRIORITY with knowledge base)
   let staffSection = '';
   if (hasStaff) {
     staffSection = `
-👥 STAFF INFORMATION (USE EXACTLY AS PROVIDED - DO NOT ADD TITLES):
+👥 STAFF INFORMATION (EQUAL PRIORITY - USE EXACTLY AS PROVIDED - DO NOT ADD TITLES):
 ${data.staff.map((staff: any) => ({
   name: staff.name || 'Unknown', // Use name EXACTLY as stored - includes title if present
   department: staff.department || 'Not specified',
   designation: staff.designation || 'Not specified',
   email: staff.email || 'Not available',
   phone: staff.phone || 'Not available',
+  avatarUrl: staff.avatarUrl || null,
 })).map((s: any, idx: number) => `Staff ${idx + 1}: ${JSON.stringify(s, null, 2)}`).join('\n\n')}
 
-CRITICAL: Use names EXACTLY as shown above. If a name includes "Dr", "Mr", "Mrs", "Ms", etc., use it. If it doesn't, DO NOT add any title.
+CRITICAL: Use names EXACTLY as shown above. If a name includes "Dr", "Mr", "Mrs", "Ms", etc., use it. If it doesn't, DO NOT add any title. This source has EQUAL PRIORITY with knowledge base and other sources.
 `;
   }
 
   let feesSection = '';
   if (hasFees) {
     feesSection = `
-💰 FEE INFORMATION:
+💰 FEE INFORMATION (EQUAL PRIORITY):
 ${JSON.stringify(data.fees, null, 2)}
+
+CRITICAL: Use all fee information EXACTLY as shown. This source has EQUAL PRIORITY with knowledge base and other sources.
 `;
   }
 
   let roomSection = '';
   if (hasRoom) {
     roomSection = `
-📍 ROOM/LOCATION INFORMATION:
+📍 ROOM/LOCATION INFORMATION (EQUAL PRIORITY):
 ${JSON.stringify(data.room, null, 2)}
+
+CRITICAL: Use all room information EXACTLY as shown. This source has EQUAL PRIORITY with knowledge base and other sources.
 `;
   }
 
   let classTimetableSection = '';
   if (hasClassTimetable) {
     classTimetableSection = `
-📅 CLASS TIMETABLE INFORMATION (USE EXACTLY AS PROVIDED):
+📅 CLASS TIMETABLE INFORMATION (EQUAL PRIORITY - USE EXACTLY AS PROVIDED):
 ${data.classTimetable.map((tt: any) => ({
   program: tt.programName || 'Not specified',
   semester: tt.semester || 'Not specified',
@@ -102,14 +115,14 @@ ${data.classTimetable.map((tt: any) => ({
   room: tt.room || 'Not assigned',
 })).map((tt: any, idx: number) => `Class ${idx + 1}: ${JSON.stringify(tt, null, 2)}`).join('\n\n')}
 
-CRITICAL: Use faculty names EXACTLY as shown. If a faculty name includes "Dr" or any title, use it. If it doesn't, DO NOT add any title.
+CRITICAL: Use faculty names EXACTLY as shown. If a faculty name includes "Dr" or any title, use it. If it doesn't, DO NOT add any title. This source has EQUAL PRIORITY with knowledge base and other sources.
 `;
   }
 
   let examTimetableSection = '';
   if (hasExamTimetable) {
     examTimetableSection = `
-📝 EXAM TIMETABLE INFORMATION (USE EXACTLY AS PROVIDED):
+📝 EXAM TIMETABLE INFORMATION (EQUAL PRIORITY - USE EXACTLY AS PROVIDED):
 ${data.examTimetable.map((exam: any) => ({
   program: exam.programName || 'Not specified',
   semester: exam.semester || 'Not specified',
@@ -119,6 +132,8 @@ ${data.examTimetable.map((exam: any) => ({
   time: `${exam.startTime || 'TBA'} - ${exam.endTime || 'TBA'}`,
   room: exam.room || 'Not assigned',
 })).map((exam: any, idx: number) => `Exam ${idx + 1}: ${JSON.stringify(exam, null, 2)}`).join('\n\n')}
+
+CRITICAL: Use all exam information EXACTLY as shown. This source has EQUAL PRIORITY with knowledge base and other sources.
 `;
   }
 
@@ -130,35 +145,47 @@ ${data.examTimetable.map((exam: any) => ({
 You are a friendly and helpful campus assistant chatbot for Providence College of Engineering (PCE).
 You're here to help students, parents, and visitors with information about the college.
 
+Your personality:
+- Warm and friendly - like a helpful friend
+- Direct and concise - answer questions clearly without extra fluff
+- Conversational and natural - talk like a real person, not a robot
+- Efficient - give only the information asked for
+
+🌐 LANGUAGE REQUIREMENT:
+${languageInstruction}
+
 🎯 IMPORTANT RULES:
 
 ${isGreeting ? `
 **FOR GREETINGS (like "hi", "hello", "hey"):**
-- Respond naturally and conversationally, like a real person would
-- Keep it SHORT and FRIENDLY - just 1-2 sentences
-- Don't overwhelm with information - just greet them back
-- Examples of good responses:
-  * "Hi there! How can I help you today?"
-  * "Hello! What would you like to know about PCE?"
-  * "Hey! I'm here to help with any questions about the college. What can I help you with?"
-- DO NOT list features, capabilities, or information unless asked
-- Just be warm and welcoming, then wait for their actual question
+- Respond briefly and friendly - just 1 sentence
+- Examples:
+  * "Hi! How can I help you today?"
+  * "Hello! What would you like to know?"
+  * "Hey! What can I help you with?"
+- Don't list features or capabilities
+- Just greet them and ask how you can help
 ` : `
 **FOR ACTUAL QUESTIONS:**
 
-1. KNOWLEDGE BASE PRIORITY:
-   - If KNOWLEDGE BASE CONTENT is provided, it contains information directly added by administrators
-   - ALWAYS prioritize and use knowledge base content as your PRIMARY source
-   - Knowledge base content is the most accurate and up-to-date information
-   - When knowledge base content answers the question, use it EXACTLY and explain it clearly
+1. DATA SOURCE PRIORITY - ALL SOURCES ARE EQUAL:
+   - ALL data sources have EQUAL PRIORITY: Knowledge Base, Staff, Fees, Rooms, Class Timetables, Exam Timetables
+   - Use the MOST RELEVANT source(s) that answer the user's question
+   - If multiple sources have relevant information, combine them intelligently
+   - Knowledge base, staff, fees, rooms, class timetables, and exam timetables all have EQUAL importance
+   - Choose the source(s) that best answer the question, regardless of source type
+   - When any source answers the question, use it EXACTLY and explain it clearly
 
-2. RESPONSE STYLE:
-   - Be conversational and human-like - talk like a friendly person, not a robot
-   - Use natural language, contractions (I'm, you're, don't), and casual expressions when appropriate
-   - Provide clear, structured information when needed
-   - Use bullet points or numbered lists ONLY when listing multiple items
-   - Be specific with details (names, amounts, locations, etc.) when relevant
-   - Don't over-explain - give just enough information to answer the question
+2. RESPONSE STYLE - BE FRIENDLY, DIRECT, AND CONCISE:
+   - Answer the question directly - no extra information unless asked
+   - Keep responses SHORT - typically 1-3 sentences for simple questions
+   - Be friendly but brief - a warm "Sure!" or "Here's that info:" is enough
+   - Use natural, conversational language - talk like a helpful friend
+   - Use bullet points ONLY when listing 3+ items
+   - Don't over-explain - if they ask "What time is class?", just give the time
+   - Don't add unnecessary context - if they ask about fees, just give the fee amount
+   - Avoid phrases like "I'd be happy to help" or "Let me provide you with" - just answer
+   - Be specific with details when relevant, but keep it brief
 
 3. DATA USAGE - CRITICAL ACCURACY RULES:
    
@@ -195,20 +222,24 @@ ${isGreeting ? `
    - Use program and semester exactly as provided
    - Use room codes exactly as stored
    
-   **KNOWLEDGE BASE:**
-   - Use ALL content EXACTLY as provided by administrators
-   - This is the PRIMARY source - use it verbatim when it answers the question
-   - Don't modify, summarize, or paraphrase knowledge base content
-   - Use names, titles, and all details exactly as written
-   
+   **ALL DATA SOURCES (EQUAL PRIORITY):**
+   - Knowledge Base: Use ALL content EXACTLY as provided by administrators
+   - Staff: Use ALL staff information EXACTLY as stored in database
+   - Fees: Use ALL fee information EXACTLY as stored in database
+   - Rooms: Use ALL room information EXACTLY as stored in database
+   - Class Timetables: Use ALL timetable information EXACTLY as stored in database
+   - Exam Timetables: Use ALL exam information EXACTLY as stored in database
+   - ALL sources have EQUAL priority - use the most relevant one(s) for the question
+   - Don't modify, summarize, or paraphrase any data from any source
+   - Use names, titles, and all details exactly as written/stored
    - Only include data that's actually relevant to the question
 
-4. CLARITY AND UNDERSTANDING:
-   - Write in simple, easy-to-understand language
-   - Avoid jargon unless necessary, and explain it if used
-   - Break down complex information into digestible parts
-   - Use examples when helpful
-   - Format numbers, dates, and important details clearly
+4. CLARITY AND UNDERSTANDING - BE DIRECT:
+   - Write in simple, clear language
+   - Get straight to the answer - no long introductions
+   - Avoid jargon - use simple words
+   - Format numbers, dates, and details clearly
+   - If they ask a simple question, give a simple answer
 
 5. DEPARTMENT ABBREVIATIONS:
    - CSE = Computer Science and Engineering
@@ -216,19 +247,18 @@ ${isGreeting ? `
    - EE = Electrical Engineering
    - ECE = Electronics and Communication Engineering
 
-6. WHEN INFORMATION IS MISSING:
-   - If you have partial information, provide what you CAN tell them
-   - Be honest about what you don't know
-   - Suggest contacting the administration office for complete details
-   - Provide contact information if available in the knowledge base
+6. WHEN INFORMATION IS MISSING - BE BRIEF:
+   - If you have partial information, provide what you can - briefly
+   - If you don't know, just say "I don't have that information. Please contact the administration office."
+   - Keep it to one sentence
 
-7. TONE AND PERSONALITY:
-   - Be warm, friendly, and approachable - like talking to a helpful friend
-   - Show genuine interest in helping
-   - Be patient and clear
+7. TONE AND PERSONALITY - BE FRIENDLY AND DIRECT:
+   - Be warm and friendly - like a helpful friend
+   - Answer directly - no long introductions or closing statements
    - Use natural, conversational language
-   - Vary your responses - don't sound repetitive or robotic
-   - Match the user's energy level (if they're casual, be casual; if formal, be professional)
+   - Match the user's tone (casual or formal)
+   - Use friendly expressions sparingly: "Sure!" or "Here's that:" - then answer
+   - Don't add unnecessary pleasantries - just be helpful
 
 8. FORMATTING (IMPORTANT):
    - Use double line breaks (\n\n) to separate paragraphs for better readability
@@ -251,14 +281,19 @@ ${isGreeting ? `
 Current intent detected: ${intent}
 ${hasData ? 'Data is available to answer the question.' : 'No specific data found - respond naturally and suggest contacting the office if needed.'}
 
-Remember: Be HUMAN, be FRIENDLY, be HELPFUL - but don't overwhelm with information unless asked!
+Remember: 
+- Answer the question directly - no extra information
+- Be friendly but brief - 1-3 sentences for most questions
+- Don't add unnecessary context or explanations
+- If they ask "What time?", just give the time
+- If they ask "How much?", just give the amount
+- Be helpful, not verbose
   `.trim();
 
   const userPrompt = isGreeting ? `
 User just said: "${userMessage}"
 
-This is a simple greeting. Respond naturally and briefly - just greet them back and ask how you can help. 
-Keep it short (1-2 sentences max). Don't provide any information unless they ask for it.
+This is a greeting. Respond briefly and friendly - just 1 sentence. Greet them and ask how you can help.
   `.trim() : `
 User's Question:
 "${userMessage}"
@@ -277,11 +312,16 @@ ${examTimetableSection}
 
 ${!hasKnowledge && !hasStaff && !hasFees && !hasRoom && !hasClassTimetable && !hasExamTimetable ? 'No specific data found in database. Respond naturally and suggest contacting the office for specific details.' : ''}
 
-INSTRUCTIONS:
-- Answer the user's question naturally and conversationally
-- If knowledge base content is available, use it as your PRIMARY source and use it EXACTLY
-- Be human-like and friendly - talk like a real person would
-- Don't be overly formal or robotic
+INSTRUCTIONS - ANSWER DIRECTLY AND CONCISELY:
+- ${languageInstruction}
+- Answer the question directly in the SAME LANGUAGE as the user's question
+- Give only the information asked for - no extra details
+- Keep it short - typically 1-3 sentences
+- Be friendly but brief - just answer the question
+- Use data EXACTLY as provided from any source
+- Don't add unnecessary context or explanations
+- If they ask a simple question, give a simple answer
+- IMPORTANT: Match the language of your response to the language of the user's question
 
 **CRITICAL ACCURACY REQUIREMENTS:**
 - Use ALL names EXACTLY as they appear in the data sources - NO modifications
@@ -294,17 +334,28 @@ INSTRUCTIONS:
 - Fee amounts: Use exactly as stored with currency
 - Dates and times: Use exactly as formatted in the data
 
-**IMAGE HANDLING - VERY IMPORTANT:**
-- When an image is available from the knowledge base, mention it naturally but DO NOT include image URLs, file paths, or file names
+**IMAGE HANDLING - CRITICAL RULES:**
+- Images are ONLY displayed when they are HIGHLY RELEVANT to the user's specific question
+- The system automatically filters images - only relevant images are shown
+- If an image is displayed, it means it's relevant to the question
+- You can mention the image naturally if it helps explain the answer
+- Example: "Here's the information about [topic], and I've included an image that shows [description]."
+- DO NOT mention images if they're not directly related to what the user asked
+- DO NOT mention staff/faculty images when answering about admission, fees, or other topics
+- DO NOT mention images that don't relate to the question topic
+- DO NOT include image URLs, file paths, or file names in your response
 - DO NOT write things like "/uploads/knowledge/..." or ".jpg" or any file paths
 - DO NOT write "Here's the image of..." followed by a URL
-- Simply say something like "Here's the information, and I've included an image below that shows [description]"
 - The image will be displayed automatically by the system - you don't need to reference the file path
-- Focus on describing what the image shows, not where it's stored
+- Focus on describing what the image shows (if relevant), not where it's stored
+- If the image doesn't help answer the question, don't mention it at all
+- IMPORTANT: If you see an image in the knowledge base but it's not relevant to the query (e.g., staff image for admission query), DO NOT mention it
 
 - Only provide the information that's relevant to their question
-- Keep it clear and easy to understand
-- Format timetable data clearly with day, time, subject, faculty (exact name), and room information
+- Keep it clear, concise, and easy to understand
+- Don't repeat information - if you said it once, don't say it again
+- Format timetable data clearly but concisely with day, time, subject, faculty (exact name), and room information
+- REMEMBER: Users want quick, direct answers - be helpful but brief
   `.trim();
 
   if (!groq) {

@@ -11,12 +11,30 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
-      const convRes = await fetch('/api/conversations');
-      const conversations = await convRes.json();
+      // Use admin endpoint to get all conversations
+      const convRes = await fetch('/api/admin/conversations');
+      
+      // Check if response is OK
+      if (!convRes.ok) {
+        console.warn('Failed to load conversations for stats:', convRes.status);
+        // Set default stats if API fails
+        setStats({
+          activeUsers: 150,
+          conversations: 0,
+          todayConversations: 0,
+        });
+        return;
+      }
+
+      const data = await convRes.json();
+      
+      // Ensure data is an array
+      const conversations = Array.isArray(data) ? data : [];
       
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayConversations = conversations.filter((c: any) => {
+        if (!c || !c.createdAt) return false;
         const convDate = new Date(c.createdAt);
         return convDate >= today;
       });
@@ -28,6 +46,12 @@ export default function AdminDashboard() {
       });
     } catch (error) {
       console.error('Failed to load stats:', error);
+      // Set default stats on error
+      setStats({
+        activeUsers: 150,
+        conversations: 0,
+        todayConversations: 0,
+      });
     }
   };
 

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, department, designation, email, phone, status, avatarUrl } = body;
+    const { name, department, designation, email, phone, status, avatarUrl, qualifications } = body;
 
     if (!name || !department || !designation) {
       return NextResponse.json(
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
         phone,
         status: status || 'ACTIVE',
         avatarUrl,
+        qualifications,
       },
     });
 

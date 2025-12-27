@@ -139,3 +139,141 @@ npm run dev      # Starts Next.js dev server on http://localhost:3000
 - ✅ CSV export with proper formatting
 - ✅ Database model with migrations ready
 - ✅ Error handling throughout
+- ✅ Voice input (Speech-to-Text) using OpenAI Whisper
+- ✅ Voice output (Text-to-Speech) using OpenAI TTS
+
+---
+
+## 🎤 Voice Features Implementation
+
+### 1. **Speech-to-Text (STT) - FREE Browser API**
+- **Implementation**: Browser Web Speech API (100% FREE)
+- **Location**: `app/chat/page.tsx`
+- **Service**: Native browser `SpeechRecognition` API
+- **Functionality**:
+  - Real-time speech recognition
+  - No API keys or costs required
+  - Works entirely in browser
+  - Automatic transcription to text input field
+  - Supports continuous recognition
+  - Error handling with user-friendly messages
+
+### 2. **Text-to-Speech (TTS) - FREE Browser API**
+- **Implementation**: Browser Speech Synthesis API (100% FREE)
+- **Location**: `app/chat/page.tsx`
+- **Service**: Native browser `speechSynthesis` API
+- **Functionality**:
+  - Natural-sounding voice synthesis
+  - No API keys or costs required
+  - Works entirely in browser
+  - Instant playback
+  - Multiple voice options (browser-dependent)
+  - Play/pause controls
+
+### 3. **Chat Interface Voice Features**
+- **Location**: `app/chat/page.tsx`
+- **Voice Input**:
+  - Microphone button in chat input footer
+  - Real-time voice recording using MediaRecorder API
+  - Visual feedback (pulsing red button when recording)
+  - Automatic transcription on stop
+  - Transcribed text populates input field
+  - Loading state during transcription
+  
+- **Voice Output**:
+  - Speaker icon button on each assistant message
+  - Click to play message audio
+  - Visual feedback (icon changes when playing)
+  - Play/pause toggle functionality
+  - Automatic cleanup of audio resources
+
+### 4. **Dependencies**
+- No additional dependencies required!
+- Uses browser-native APIs (Web Speech API)
+- `openai` package is optional (only if using paid API routes)
+
+### 5. **Environment Variables**
+```bash
+# NOT REQUIRED - Voice features use free browser APIs!
+# OPENAI_API_KEY is optional (only if you want to use paid API routes)
+```
+
+### 6. **User Experience**
+- **Voice Input Flow**:
+  1. User clicks microphone button
+  2. Browser requests microphone permission (first time)
+  3. Recording starts (button turns red and pulses)
+  4. User speaks their message
+  5. User clicks stop button
+  6. Audio is sent to STT API
+  7. Transcribed text appears in input field
+  8. User can edit or send the message
+
+- **Voice Output Flow**:
+  1. Assistant responds with text message
+  2. User clicks speaker icon on message
+  3. Text is sent to TTS API
+  4. Audio is generated and played automatically
+  5. Icon changes to indicate playback
+  6. User can click again to stop playback
+
+### 7. **Technical Details**
+- **Audio Format**: WebM (Opus codec) for recording, MP3 for playback
+- **Browser Compatibility**: Modern browsers with MediaRecorder API support
+- **Error Handling**: Graceful fallbacks with user notifications
+- **State Management**: React hooks for recording and playback states
+- **Resource Management**: Proper cleanup of audio streams and URLs
+
+### 8. **Documentation Updates**
+- Updated `README.md` with voice features section
+- Added API endpoint documentation
+- Added environment variable requirements
+- Updated project structure documentation
+
+## 📋 Voice API Endpoints Summary
+
+| Method | Endpoint | Purpose | Input | Output |
+|--------|----------|---------|-------|--------|
+| POST | `/api/voice/stt` | Speech-to-text transcription | FormData with audio file | `{ text: string }` |
+| POST | `/api/voice/tts` | Text-to-speech generation | `{ text: string }` | MP3 audio file |
+
+## 🚀 Voice Features Usage
+
+### For Users:
+1. **Recording Voice Messages**:
+   - Click the microphone button (gray) in the chat input area
+   - Speak your message
+   - Click the stop button (red, pulsing) when done
+   - Wait for transcription (text appears in input field)
+   - Edit if needed, then send
+
+2. **Hearing Responses**:
+   - Click the speaker icon on any assistant message
+   - Audio will play automatically
+   - Click again to stop playback
+
+### For Developers:
+- Ensure `OPENAI_API_KEY` is set in `.env` file
+- Voice features require browser microphone permissions
+- Test in HTTPS or localhost (required for MediaRecorder API)
+- Check browser console for any errors
+
+## 🔧 Service Selection Rationale
+
+### Speech-to-Text: Browser Web Speech API
+- ✅ **100% FREE**: No costs, no API keys, no limits
+- ✅ **Privacy**: All processing happens in browser
+- ✅ **Real-time**: Instant transcription as you speak
+- ✅ **No Setup**: Works out of the box
+- ✅ **Offline Capable**: Works after initial page load
+- ⚠️ **Browser Support**: Best in Chrome/Edge/Safari
+
+### Text-to-Speech: Browser Speech Synthesis API
+- ✅ **100% FREE**: No costs, no API keys, no limits
+- ✅ **Privacy**: All processing happens in browser
+- ✅ **Instant**: No network delay
+- ✅ **No Setup**: Works out of the box
+- ✅ **Universal Support**: Works in all modern browsers
+- ✅ **Multiple Voices**: Browser-dependent voice options
+
+**Note**: The paid API routes (`/api/voice/stt` and `/api/voice/tts`) are still available as optional alternatives if you prefer paid services, but the default implementation uses free browser APIs.

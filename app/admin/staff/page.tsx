@@ -10,6 +10,8 @@ interface Staff {
   email?: string;
   phone?: string;
   status: string;
+  avatarUrl?: string;
+  qualifications?: string;
 }
 
 export default function StaffManagementPage() {
@@ -25,7 +27,11 @@ export default function StaffManagementPage() {
     email: '',
     phone: '',
     status: 'ACTIVE',
+    avatarUrl: '',
+    qualifications: '',
   });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     loadStaff();
@@ -72,7 +78,10 @@ export default function StaffManagementPage() {
           email: '',
           phone: '',
           status: 'ACTIVE',
+          avatarUrl: '',
+          qualifications: '',
         });
+        setImagePreview(null);
         loadStaff();
       }
     } catch (error) {
@@ -89,7 +98,10 @@ export default function StaffManagementPage() {
       email: staffMember.email || '',
       phone: staffMember.phone || '',
       status: staffMember.status,
+      avatarUrl: staffMember.avatarUrl || '',
+      qualifications: staffMember.qualifications || '',
     });
+    setImagePreview(staffMember.avatarUrl || null);
     setIsModalOpen(true);
   };
 
@@ -104,6 +116,52 @@ export default function StaffManagementPage() {
     } catch (error) {
       console.error('Failed to delete staff:', error);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/staff/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to upload image');
+      }
+
+      const data = await res.json();
+      setFormData(prev => ({ ...prev, avatarUrl: data.url }));
+      setImagePreview(data.url);
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, avatarUrl: '' }));
+    setImagePreview(null);
   };
 
   return (
@@ -122,7 +180,10 @@ export default function StaffManagementPage() {
               email: '',
               phone: '',
               status: 'ACTIVE',
+              avatarUrl: '',
+              qualifications: '',
             });
+            setImagePreview(null);
             setIsModalOpen(true);
           }}
           className="btn-primary flex items-center gap-2 px-5 py-3 rounded-2xl text-white font-semibold relative overflow-hidden group hover-lift"
@@ -172,10 +233,19 @@ export default function StaffManagementPage() {
             style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)', border: '1px solid rgba(255, 255, 255, 0.3)', animationDelay: `${index * 0.05}s` }}
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl relative overflow-hidden font-bold text-white text-lg" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 8px 30px rgba(102, 126, 234, 0.3)' }}>
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
-                <span className="relative z-10">{member.name.charAt(0)}</span>
-              </div>
+              {member.avatarUrl ? (
+                <img
+                  src={member.avatarUrl}
+                  alt={member.name}
+                  className="h-14 w-14 rounded-2xl object-cover"
+                  style={{ boxShadow: '0 8px 30px rgba(102, 126, 234, 0.3)' }}
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl relative overflow-hidden font-bold text-white text-lg" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 8px 30px rgba(102, 126, 234, 0.3)' }}>
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
+                  <span className="relative z-10">{member.name.charAt(0)}</span>
+                </div>
+              )}
               <div>
                 <p className="font-bold text-charcoal text-lg">{member.name}</p>
                 <p className="text-sm text-gray-600 font-medium">
@@ -269,6 +339,62 @@ export default function StaffManagementPage() {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="modern-input w-full rounded-2xl py-3 px-4 text-charcoal"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-charcoal mb-2">
+                  Faculty Image <span className="text-gray-500 text-xs font-normal">(Optional)</span>
+                </label>
+                {imagePreview ? (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded-2xl mb-2"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label
+                      htmlFor="image-upload"
+                      className="cursor-pointer flex flex-col items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-4xl text-gray-400">
+                        {uploadingImage ? 'hourglass_empty' : 'image'}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {uploadingImage ? 'Uploading...' : 'Click to upload faculty image'}
+                      </span>
+                      <span className="text-xs text-gray-400">Max 5MB (JPEG, PNG, GIF, WebP)</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-charcoal mb-2">
+                  Qualifications <span className="text-gray-500 text-xs font-normal">(Optional)</span>
+                </label>
+                <textarea
+                  value={formData.qualifications}
+                  onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })}
+                  placeholder="Enter staff qualifications (e.g., Ph.D., M.Tech, etc.)"
+                  rows={3}
                   className="modern-input w-full rounded-2xl py-3 px-4 text-charcoal"
                 />
               </div>

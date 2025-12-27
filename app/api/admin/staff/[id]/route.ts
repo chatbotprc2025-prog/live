@@ -45,7 +45,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, department, designation, email, phone, status, avatarUrl } = body;
+    const { name, department, designation, email, phone, status, avatarUrl, qualifications } = body;
 
     const staff = await prisma.staff.update({
       where: { id },
@@ -57,6 +57,7 @@ export async function PUT(
         phone,
         status,
         avatarUrl,
+        qualifications,
       },
     });
 

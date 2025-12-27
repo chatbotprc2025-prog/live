@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET - Get conversation with messages
+// GET - Get conversation with messages (verify it belongs to the client user)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const clientUserId = searchParams.get('clientUserId');
 
     if (!id) {
       return NextResponse.json(
         { error: 'Conversation ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!clientUserId) {
+      return NextResponse.json(
+        { error: 'Client user ID is required' },
         { status: 400 }
       );
     }
@@ -27,6 +36,14 @@ export async function GET(
 
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    // Verify the conversation belongs to this client user
+    if (conversation.clientUserId !== clientUserId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Conversation does not belong to this user' },
+        { status: 403 }
+      );
     }
 
     // Parse images from JSON string for each message
@@ -55,18 +72,46 @@ export async function GET(
   }
 }
 
-// DELETE - Remove a conversation and its messages
+// DELETE - Remove a conversation and its messages (verify ownership)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const clientUserId = searchParams.get('clientUserId');
 
     if (!id) {
       return NextResponse.json(
         { error: 'Conversation ID is required' },
         { status: 400 }
+      );
+    }
+
+    if (!clientUserId) {
+      return NextResponse.json(
+        { error: 'Client user ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // First verify the conversation belongs to this user
+    const conversation = await prisma.conversation.findUnique({
+      where: { id },
+    });
+
+    if (!conversation) {
+      return NextResponse.json(
+        { error: 'Conversation not found' },
+        { status: 404 }
+      );
+    }
+
+    if (conversation.clientUserId !== clientUserId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Conversation does not belong to this user' },
+        { status: 403 }
       );
     }
 

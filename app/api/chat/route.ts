@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { detectIntent, getStaffInfo, getFeeInfo, getRoomDirections, getClassTimetable, getExamTimetable } from '@/lib/chatHelpers';
 import { searchKnowledge } from '@/lib/knowledge';
 import { callGroqLLM } from '@/lib/groqLlmService';
+import { detectLanguage } from '@/lib/languageDetection';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, conversationId } = body;
+    const { message, conversationId, clientUserId } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -16,84 +17,137 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Detect intent
-    const intent = detectIntent(message);
-     const isSimpleGreeting = intent === 'GREETING';
+    if (!clientUserId) {
+      return NextResponse.json(
+        { error: 'Client user ID is required' },
+        { status: 400 }
+      );
+    }
 
-    // Query database based on intent
+    // Detect language and intent
+    const detectedLanguage = detectLanguage(message);
+    const intent = detectIntent(message);
+    const isSimpleGreeting = intent === 'GREETING';
+
+    // Query database based on intent - IMPROVED: Search all sources efficiently
     const data: any = {};
     let knowledge: any[] = [];
     
     // For simple greetings, skip all data fetching - just respond naturally
     if (!isSimpleGreeting) {
-      // Always try to get relevant data based on intent
-      if (intent === 'FEES_INFO') {
-        data.fees = await getFeeInfo(message);
-      }
-      if (intent === 'STAFF_INFO') {
-        data.staff = await getStaffInfo(message);
-      }
-      if (intent === 'DIRECTIONS') {
-        data.room = await getRoomDirections(message);
-      }
-      if (intent === 'TIMETABLE_INFO') {
-        data.classTimetable = await getClassTimetable(message);
-      }
-      if (intent === 'EXAM_INFO') {
-        data.examTimetable = await getExamTimetable(message);
-      }
-      if (intent === 'ADMISSION_INFO' || intent === 'GENERAL_INFO') {
-        // For admission and general queries, try to get relevant data from all sources
-        const msgLower = message.toLowerCase();
-        
-        // Staff/Faculty queries
-        if (msgLower.includes('facult') || msgLower.includes('staff') || 
-            msgLower.includes('teacher') || msgLower.includes('professor') ||
-            msgLower.includes('hod') || msgLower.includes('head of department')) {
-          data.staff = await getStaffInfo(message);
-        }
-        
-        // Fee queries
-        if (msgLower.includes('fee') || msgLower.includes('cost') || 
-            msgLower.includes('tuition') || msgLower.includes('payment') ||
-            msgLower.includes('price') || msgLower.includes('charges')) {
-          data.fees = await getFeeInfo(message);
-        }
-        
-        // Room/Location queries
-        if (msgLower.includes('room') || msgLower.includes('location') || 
-            msgLower.includes('where') || msgLower.includes('building') ||
-            msgLower.includes('directions') || msgLower.includes('find')) {
-          data.room = await getRoomDirections(message);
-        }
-        
-        // Class timetable queries
-        if (msgLower.includes('timetable') || msgLower.includes('schedule') || 
-            msgLower.includes('class time') || msgLower.includes('when is class') ||
-            msgLower.includes('period') || msgLower.includes('subject') ||
-            msgLower.includes('when is') || msgLower.includes('what time')) {
-          data.classTimetable = await getClassTimetable(message);
-        }
-        
-        // Exam timetable queries
-        if (msgLower.includes('exam') || msgLower.includes('examination') ||
-            msgLower.includes('exam date') || msgLower.includes('exam schedule') ||
-            msgLower.includes('test') || msgLower.includes('when is exam')) {
-          data.examTimetable = await getExamTimetable(message);
-        }
-      }
-
-      // ALWAYS search knowledge base first - it's the primary learning source
-      // Get more results for better context
-      knowledge = await searchKnowledge(message, 15);
+      const msgLower = message.toLowerCase();
       
-      // Prioritize knowledge base content
-      if (knowledge.length > 0) {
-        data.knowledge = knowledge;
-        // If we have strong knowledge base matches, prioritize them
-        // by placing them first in the data structure
-        data.priority = 'knowledge_base';
+      // IMPROVED: Search all sources in parallel for better efficiency
+      // This allows the chatbot to learn from multiple sources simultaneously
+      const searchPromises: Promise<any>[] = [];
+      
+      // 1. Search knowledge base - EQUAL PRIORITY with other sources
+      // Optimized: Get fewer but more relevant results for better learning efficiency
+      searchPromises.push(
+        searchKnowledge(message, 8).then(k => {
+          knowledge = k;
+          if (k.length > 0) {
+            // Only keep top relevant results to avoid overwhelming the LLM
+            data.knowledge = k.slice(0, 5);
+          }
+        })
+      );
+      
+      // 2. Search based on intent - but also check for cross-references
+      if (intent === 'FEES_INFO' || msgLower.includes('fee') || msgLower.includes('cost') || 
+          msgLower.includes('tuition') || msgLower.includes('payment') ||
+          msgLower.includes('price') || msgLower.includes('charges')) {
+        searchPromises.push(
+          getFeeInfo(message).then(fees => {
+            if (fees && fees.length > 0) data.fees = fees;
+          })
+        );
       }
+      
+      if (intent === 'STAFF_INFO' || msgLower.includes('facult') || msgLower.includes('staff') || 
+          msgLower.includes('teacher') || msgLower.includes('professor') ||
+          msgLower.includes('hod') || msgLower.includes('head of department')) {
+        searchPromises.push(
+          getStaffInfo(message).then(staff => {
+            if (staff && staff.length > 0) data.staff = staff;
+          })
+        );
+      }
+      
+      if (intent === 'DIRECTIONS' || msgLower.includes('room') || msgLower.includes('location') || 
+          msgLower.includes('where') || msgLower.includes('building') ||
+          msgLower.includes('directions') || msgLower.includes('find')) {
+        searchPromises.push(
+          getRoomDirections(message).then(room => {
+            if (room) data.room = room;
+          })
+        );
+      }
+      
+      if (intent === 'TIMETABLE_INFO' || msgLower.includes('timetable') || msgLower.includes('schedule') || 
+          msgLower.includes('class time') || msgLower.includes('when is class') ||
+          msgLower.includes('period') || msgLower.includes('subject') ||
+          msgLower.includes('when is') || msgLower.includes('what time')) {
+        searchPromises.push(
+          getClassTimetable(message).then(timetable => {
+            if (timetable && timetable.length > 0) data.classTimetable = timetable;
+          })
+        );
+      }
+      
+      if (intent === 'EXAM_INFO' || msgLower.includes('exam') || msgLower.includes('examination') ||
+          msgLower.includes('exam date') || msgLower.includes('exam schedule') ||
+          msgLower.includes('test') || msgLower.includes('when is exam')) {
+        searchPromises.push(
+          getExamTimetable(message).then(exams => {
+            if (exams && exams.length > 0) data.examTimetable = exams;
+          })
+        );
+      }
+      
+      // IMPROVED: For general queries, intelligently search across all sources
+      // This helps the chatbot learn from multiple data sources
+      if (intent === 'ADMISSION_INFO' || intent === 'GENERAL_INFO') {
+        // Search all sources in parallel for comprehensive learning
+        if (!data.fees) {
+          searchPromises.push(
+            getFeeInfo(message).then(fees => {
+              if (fees && fees.length > 0) data.fees = fees;
+            })
+          );
+        }
+        if (!data.staff) {
+          searchPromises.push(
+            getStaffInfo(message).then(staff => {
+              if (staff && staff.length > 0) data.staff = staff;
+            })
+          );
+        }
+        if (!data.room) {
+          searchPromises.push(
+            getRoomDirections(message).then(room => {
+              if (room) data.room = room;
+            })
+          );
+        }
+        if (!data.classTimetable) {
+          searchPromises.push(
+            getClassTimetable(message).then(timetable => {
+              if (timetable && timetable.length > 0) data.classTimetable = timetable;
+            })
+          );
+        }
+        if (!data.examTimetable) {
+          searchPromises.push(
+            getExamTimetable(message).then(exams => {
+              if (exams && exams.length > 0) data.examTimetable = exams;
+            })
+          );
+        }
+      }
+      
+      // Wait for all searches to complete in parallel
+      await Promise.all(searchPromises);
     }
 
     // Construct sources for UI (RAG-style) from knowledge base
@@ -109,39 +163,103 @@ export async function POST(request: NextRequest) {
       })) || []
     );
 
-    // Extract images from knowledge base for display
-    const images = isSimpleGreeting ? [] : (
-      data.knowledge?.filter((k: any) => {
-        const hasImage = k.imageUrl && 
-                        k.imageUrl.trim() && 
-                        k.imageUrl !== 'null' && 
-                        k.imageUrl !== 'undefined' &&
-                        k.imageUrl.trim().length > 0;
-        return hasImage;
-      }).map((k: any) => {
-        // Ensure URL starts with / for proper path resolution
-        let imageUrl = k.imageUrl.trim();
-        if (!imageUrl.startsWith('/') && !imageUrl.startsWith('http')) {
-          imageUrl = '/' + imageUrl;
+    // Extract images from knowledge base for display - ONLY from highly relevant entries
+    // Only show images from the MOST relevant knowledge entry that actually answers the question
+    const images = isSimpleGreeting ? [] : (() => {
+      if (!data.knowledge || data.knowledge.length === 0) {
+        return [];
+      }
+      
+      // Get the top knowledge entry (most relevant)
+      const topKnowledge = data.knowledge[0];
+      
+      // Check if it has an image and is actually relevant to the query
+      const hasImage = topKnowledge.imageUrl && 
+                      topKnowledge.imageUrl.trim() && 
+                      topKnowledge.imageUrl !== 'null' && 
+                      topKnowledge.imageUrl !== 'undefined' &&
+                      topKnowledge.imageUrl.trim().length > 0;
+      
+      // Only include image if the knowledge entry is highly relevant (it's the top result)
+      // and the query is asking about something that the knowledge entry actually covers
+      if (!hasImage) {
+        return [];
+      }
+      
+      // Extract query intent and key terms for STRICT relevance checking
+      const queryLower = message.toLowerCase().trim();
+      const queryTerms = queryLower
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !['what', 'when', 'where', 'who', 'how', 'which', 'about', 'the', 'is', 'are', 'can', 'will'].includes(w));
+      
+      const knowledgeText = (topKnowledge.text || '').toLowerCase();
+      const knowledgeName = (topKnowledge.name || '').toLowerCase();
+      const knowledgeType = (topKnowledge.type || '').toLowerCase();
+      
+      // STRICT EXCLUSION RULES - Don't show images if type doesn't match query intent
+      const queryIntent = detectIntent(message);
+      
+      // If query is about admission, don't show staff/faculty images
+      if (queryIntent === 'ADMISSION' || queryLower.includes('admission') || queryLower.includes('admit')) {
+        if (knowledgeType.includes('staff') || knowledgeType.includes('faculty') || 
+            knowledgeName.includes('faculty') || knowledgeName.includes('staff') ||
+            knowledgeText.includes('faculty') || knowledgeText.includes('staff member') ||
+            knowledgeName.toLowerCase().includes('nidhin')) {
+          return [];
         }
-        return {
-          url: imageUrl,
-          description: k.imageDescription || k.name || 'Image from knowledge base',
-          title: k.name || 'Knowledge Entry',
-        };
-      }) || []
-    );
+      }
+      
+      // If query is about staff/faculty, only show staff/faculty images
+      if (queryIntent === 'STAFF' || queryLower.includes('staff') || queryLower.includes('faculty') || 
+          queryLower.includes('teacher') || queryLower.includes('professor')) {
+        if (!knowledgeType.includes('staff') && !knowledgeType.includes('faculty') &&
+            !knowledgeName.includes('faculty') && !knowledgeName.includes('staff')) {
+          return [];
+        }
+      }
+      
+      // If query is about fees, only show fee-related images
+      if (queryIntent === 'FEE' || queryLower.includes('fee') || queryLower.includes('payment') || 
+          queryLower.includes('tuition') || queryLower.includes('cost')) {
+        if (!knowledgeType.includes('fee') && !knowledgeName.includes('fee') && 
+            !knowledgeText.includes('fee') && !knowledgeText.includes('payment')) {
+          return [];
+        }
+      }
+      
+      // Count matching terms
+      const matchingTerms = queryTerms.filter(term => 
+        knowledgeText.includes(term) || 
+        knowledgeName.includes(term) ||
+        knowledgeType.includes(term)
+      ).length;
+      
+      // Calculate relevance score
+      const relevanceScore = queryTerms.length > 0 ? matchingTerms / queryTerms.length : 0;
+      
+      // STRICT RELEVANCE CHECK - Only show if:
+      // 1. At least 2 key terms match OR relevance score > 0.5
+      // 2. Knowledge entry actually contains query-related content
+      const isRelevant = matchingTerms >= 2 || relevanceScore > 0.5 || 
+                        (queryTerms.length <= 1 && matchingTerms > 0);
+      
+      if (!isRelevant) {
+        return [];
+      }
+      
+      // Ensure URL starts with / for proper path resolution
+      let imageUrl = topKnowledge.imageUrl.trim();
+      if (!imageUrl.startsWith('/') && !imageUrl.startsWith('http')) {
+        imageUrl = '/' + imageUrl;
+      }
+      
+      return [{
+        url: imageUrl,
+        description: topKnowledge.imageDescription || topKnowledge.name || 'Image from knowledge base',
+        title: topKnowledge.name || 'Knowledge Entry',
+      }];
+    })();
     
-    // Debug logging
-    console.log('Knowledge entries with images check:', data.knowledge?.map((k: any) => ({
-      name: k.name,
-      hasImageUrl: !!k.imageUrl,
-      imageUrl: k.imageUrl
-    })) || []);
-    console.log('Images extracted:', images.length);
-    if (images.length > 0) {
-      console.log('Image URLs:', images.map((img: any) => img.url));
-    }
 
     // Enhance data with metadata for better LLM understanding
     const enhancedData = {
@@ -159,11 +277,12 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Call Groq LLM with enhanced context
+    // Call Groq LLM with enhanced context and detected language
     const llmResponse = await callGroqLLM({
       intent,
       userMessage: message,
       data: enhancedData,
+      language: detectedLanguage, // Pass detected language
      });
 
     // Clean up the answer to remove any image URLs that might have been included
@@ -183,19 +302,30 @@ export async function POST(request: NextRequest) {
       cleanedAnswer = cleanedAnswer.replace(/\s+/g, ' ').trim();
     }
 
-    // Get or create conversation
+    // Get or create conversation - ensure it belongs to this client user
     let conversation;
     if (conversationId) {
       conversation = await prisma.conversation.findUnique({
         where: { id: conversationId },
       });
+      
+      // Verify the conversation belongs to this client user
+      if (conversation && conversation.clientUserId !== clientUserId) {
+        return NextResponse.json(
+          { error: 'Unauthorized: Conversation does not belong to this user' },
+          { status: 403 }
+        );
+      }
     }
 
     if (!conversation) {
-      // Create new conversation with title from first message
+      // Create new conversation with title from first message, associated with client user
       const title = message.length > 50 ? message.substring(0, 50) + '...' : message;
       conversation = await prisma.conversation.create({
-        data: { title },
+        data: { 
+          title,
+          clientUserId: clientUserId,
+        },
       });
     }
 

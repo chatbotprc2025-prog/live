@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { detectLanguage } from '@/lib/languageDetection';
 
 interface Message {
   id: string;
@@ -87,23 +88,52 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  
+  // Voice recording state (using Web Speech API - FREE)
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [networkError, setNetworkError] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const shouldStopRef = useRef<boolean>(false); // Track if user wants to stop
+  const streamRef = useRef<MediaStream | null>(null); // Track audio stream
+  
+  // Text-to-speech state (using Web Speech API - FREE)
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
 
   useEffect(() => {
-    // Check if user has registered before allowing access to chat
+    // Check if user has registered and verified email before allowing access to chat
     const isLoggedIn = localStorage.getItem('clientUserLoggedIn');
     const clientUserId = localStorage.getItem('clientUserId');
     const clientUserEmail = localStorage.getItem('clientUserEmail') || '';
     const clientUserType = localStorage.getItem('clientUserType') || 'student';
+    const emailVerified = localStorage.getItem('emailVerified');
     
-    // Redirect to login if not logged in or missing required data
+    // Basic check - redirect if not logged in
     if (isLoggedIn !== 'true' || !clientUserId) {
       localStorage.removeItem('clientUserLoggedIn');
       localStorage.removeItem('clientUserId');
       localStorage.removeItem('clientUserType');
       localStorage.removeItem('clientUserEmail');
+      localStorage.removeItem('emailVerified');
       router.push('/');
       return;
     }
+    
+    // CRITICAL: Check if email is verified
+    if (emailVerified !== 'true') {
+      // Email not verified - redirect to registration/OTP screen
+      console.log('❌ Email not verified. Redirecting to registration...');
+      localStorage.removeItem('clientUserLoggedIn');
+      localStorage.removeItem('clientUserId');
+      localStorage.removeItem('clientUserType');
+      localStorage.removeItem('clientUserEmail');
+      localStorage.removeItem('emailVerified');
+      router.push('/');
+      return;
+    }
+    
+    // User is logged in and email is verified - allow access
     setIsAuthorized(true);
     setClientUser({ email: clientUserEmail, userType: clientUserType });
     loadConversations();
@@ -136,6 +166,85 @@ export default function ChatPage() {
     return () => clearTimeout(timeoutId);
   }, [messages, isLoading]);
 
+  // Load voices on mount for better TTS performance
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      // Trigger voice loading
+      const loadVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      
+      loadVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+      }
+    }
+  }, []);
+
+  // Monitor network status for speech recognition
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('✅ Network connection restored');
+    };
+    
+    const handleOffline = () => {
+      console.warn('⚠️ Network connection lost - speech recognition will not work');
+      // Stop recording if network is lost
+      if (isRecording) {
+        shouldStopRef.current = true;
+        setIsRecording(false);
+        setIsTranscribing(false);
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+            recognitionRef.current.abort();
+          } catch (e) {
+            // Ignore errors
+          }
+        }
+        alert('Network connection lost. Speech recognition requires an internet connection. Please reconnect and try again.');
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isRecording]);
+
+  // Cleanup speech resources on unmount
+  useEffect(() => {
+    return () => {
+      // Set stop flag
+      shouldStopRef.current = true;
+      
+      // Stop speech recognition
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+          recognitionRef.current.abort();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+        recognitionRef.current = null;
+      }
+      
+      // Stop audio stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      // Stop speech synthesis
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   const scrollToBottom = () => {
     // Use requestAnimationFrame for better timing
     requestAnimationFrame(() => {
@@ -153,7 +262,32 @@ export default function ChatPage() {
 
   const loadConversations = async () => {
     try {
-      const res = await fetch('/api/conversations');
+      const clientUserId = localStorage.getItem('clientUserId');
+      if (!clientUserId) {
+        console.error('No client user ID found');
+        return;
+      }
+
+      const res = await fetch(`/api/conversations?clientUserId=${clientUserId}`);
+      
+      // Check if response is OK before parsing JSON
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => 'Unknown error');
+        console.error('Failed to load conversations:', res.status, errorText);
+        setConversations([]);
+        setFilteredConversations([]);
+        return;
+      }
+
+      // Check if response has content before parsing
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Invalid response type:', contentType);
+        setConversations([]);
+        setFilteredConversations([]);
+        return;
+      }
+
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
       setConversations(list);
@@ -163,6 +297,8 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error('Failed to load conversations:', error);
+      setConversations([]);
+      setFilteredConversations([]);
     }
   };
 
@@ -171,8 +307,15 @@ export default function ChatPage() {
     if (!confirmed) return;
 
     try {
+      const clientUserId = localStorage.getItem('clientUserId');
+      if (!clientUserId) {
+        alert('User session expired. Please login again.');
+        router.push('/');
+        return;
+      }
+
       setDeletingConversationId(conversationId);
-      const res = await fetch(`/api/conversations/${conversationId}`, {
+      const res = await fetch(`/api/conversations/${conversationId}?clientUserId=${clientUserId}`, {
         method: 'DELETE',
       });
 
@@ -211,7 +354,32 @@ export default function ChatPage() {
 
   const loadConversationMessages = async (conversationId: string) => {
     try {
-      const res = await fetch(`/api/conversations/${conversationId}`);
+      const clientUserId = localStorage.getItem('clientUserId');
+      if (!clientUserId) {
+        console.error('No client user ID found');
+        return;
+      }
+
+      const res = await fetch(`/api/conversations/${conversationId}?clientUserId=${clientUserId}`);
+      
+      // Check if response is OK before parsing JSON
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => 'Unknown error');
+        console.error('Failed to load messages:', res.status, errorText);
+        setMessages([]);
+        setSources([]);
+        return;
+      }
+
+      // Check if response has content before parsing
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Invalid response type:', contentType);
+        setMessages([]);
+        setSources([]);
+        return;
+      }
+
       const data = await res.json();
       
       // Process messages to ensure images are properly formatted
@@ -278,12 +446,20 @@ export default function ChatPage() {
     setTimeout(() => scrollToBottom(), 100);
 
     try {
+      const clientUserId = localStorage.getItem('clientUserId');
+      if (!clientUserId) {
+        alert('User session expired. Please login again.');
+        router.push('/');
+        return;
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
           conversationId: activeConversation?.id,
+          clientUserId: clientUserId,
         }),
       });
 
@@ -403,8 +579,668 @@ export default function ChatPage() {
     setInputMessage(suggestion);
   };
 
+  // Helper function to format transcribed text for better readability
+  const formatTranscribedText = (text: string): string => {
+    if (!text) return '';
+    
+    return text
+      // Remove extra spaces
+      .replace(/\s+/g, ' ')
+      // Add period after sentences (if missing)
+      .replace(/([.!?])\s*([A-Z])/g, '$1 $2')
+      // Capitalize first letter
+      .replace(/^[a-z]/, (char) => char.toUpperCase())
+      // Fix common punctuation issues
+      .replace(/\s+([,.!?])/g, '$1')
+      .replace(/([,.!?])([A-Za-z])/g, '$1 $2')
+      // Trim and clean
+      .trim();
+  };
+
+  // Voice recording functions (using Web Speech API - FREE, no API key needed)
+  // Improved with better accuracy, punctuation, and efficiency
+  const startRecording = () => {
+    // Reset stop flag
+    shouldStopRef.current = false;
+    
+    try {
+      // Check if browser supports Speech Recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+        return;
+      }
+
+      // Check network connectivity (speech recognition requires internet)
+      if (!navigator.onLine) {
+        setNetworkError(true);
+        alert('Internet connection required for speech recognition.\n\nPlease check your network connection and try again.\n\nNote: Speech recognition uses Google\'s servers and requires an active internet connection.');
+        setTimeout(() => setNetworkError(false), 5000);
+        return;
+      }
+      
+      // Clear any previous network errors
+      setNetworkError(false);
+
+      // Stop any existing recognition first
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+          recognitionRef.current.abort();
+        } catch (e) {
+          // Ignore errors when stopping existing recognition
+        }
+      }
+
+      const recognition = new SpeechRecognition();
+      
+      // Optimized settings for better accuracy and efficiency
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-IN'; // Indian English (browsers don't support comma-separated language lists)
+      recognition.maxAlternatives = 1; // Use best match only for efficiency
+
+      let finalTranscript = '';
+      let interimTranscript = '';
+
+      recognition.onstart = () => {
+        if (!shouldStopRef.current) {
+          setIsRecording(true);
+          setIsTranscribing(true);
+          finalTranscript = '';
+          interimTranscript = '';
+          console.log('🎤 Recording started');
+        }
+      };
+
+      recognition.onresult = (event: any) => {
+        if (shouldStopRef.current) return;
+        
+        interimTranscript = '';
+        let newFinalText = '';
+        
+        // Process results efficiently - only process new results
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          const transcript = result[0].transcript.trim();
+          
+          if (!transcript) continue;
+          
+          if (result.isFinal) {
+            // Capitalize first letter and add proper spacing
+            const capitalized = transcript.charAt(0).toUpperCase() + transcript.slice(1);
+            finalTranscript += (finalTranscript ? ' ' : '') + capitalized;
+            newFinalText = finalTranscript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        
+        // Update input with proper formatting
+        if (newFinalText || finalTranscript || interimTranscript) {
+          const displayText = (newFinalText || finalTranscript) + (interimTranscript ? ' ' + interimTranscript : '');
+          const formatted = formatTranscribedText(displayText);
+          setInputMessage(formatted);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        // Handle expected events first - these are not errors
+        
+        // "aborted" - Expected when user stops recording
+        if (event.error === 'aborted') {
+          console.log('⏹️ Recognition aborted (expected when user stops recording)');
+          setIsRecording(false);
+          setIsTranscribing(false);
+          shouldStopRef.current = true;
+          return; // Exit early - don't treat as error
+        }
+        
+        // "no-speech" - Expected when no speech detected yet (not an error)
+        if (event.error === 'no-speech') {
+          // This is normal - happens when user pauses or no speech detected
+          // Recognition will auto-restart via onend handler if still recording
+          if (isRecording && !shouldStopRef.current) {
+            console.log('⏸️ No speech detected (user may be pausing) - will continue listening');
+            // Don't stop recording - let it continue via auto-restart
+            // The onend handler will restart if user is still recording
+          } else {
+            // User stopped or wants to stop - this is fine
+            console.log('⏸️ No speech detected (recording stopped)');
+          }
+          return; // Exit early - don't treat as error
+        }
+        
+        // Handle specific errors first (before general error logging)
+        if (event.error === 'service-not-allowed') {
+          setIsRecording(false);
+          setIsTranscribing(false);
+          shouldStopRef.current = true;
+          console.warn('⚠️ Speech recognition service not available');
+          alert('Speech recognition service is not available. Please try again later or use a different browser.');
+          return; // Exit early - don't log as error
+        }
+        
+        if (event.error === 'bad-grammar') {
+          // Grammar error - not critical, just log
+          console.warn('⚠️ Grammar error in speech recognition');
+          return; // Exit early - don't log as error
+        }
+        
+        // Log actual errors (only for unhandled cases)
+        console.error('❌ Speech recognition error:', event.error);
+        
+        // Critical errors - stop recording
+        if (event.error === 'audio-capture') {
+          setIsRecording(false);
+          setIsTranscribing(false);
+          shouldStopRef.current = true;
+          alert('No microphone found. Please connect a microphone and try again.');
+        } else if (event.error === 'not-allowed') {
+          setIsRecording(false);
+          setIsTranscribing(false);
+          shouldStopRef.current = true;
+          alert('Microphone permission denied. Please allow microphone access in your browser settings and refresh the page.');
+        } else if (event.error === 'network') {
+          // Network error - speech recognition requires internet connection
+          setIsRecording(false);
+          setIsTranscribing(false);
+          setNetworkError(true);
+          shouldStopRef.current = true;
+          
+          // Provide helpful message about network requirement
+          const errorMsg = 'Network connection required for speech recognition.\n\n' +
+            'Please check:\n' +
+            '• Your internet connection\n' +
+            '• Firewall settings\n' +
+            '• Try refreshing the page\n\n' +
+            'Note: Speech recognition requires an active internet connection to work.';
+          alert(errorMsg);
+          
+          // Clear network error after 5 seconds
+          setTimeout(() => setNetworkError(false), 5000);
+        } else if (event.error === 'language-not-supported') {
+          setIsRecording(false);
+          setIsTranscribing(false);
+          shouldStopRef.current = true;
+          alert('The selected language is not supported for speech recognition. Please try speaking in English.');
+        } else {
+          // Other errors - log and stop
+          console.warn('⚠️ Speech recognition error:', event.error);
+          setIsRecording(false);
+          setIsTranscribing(false);
+          shouldStopRef.current = true;
+          
+          // Only show alert for unknown errors
+          if (event.error && event.error !== 'interrupted') {
+            alert(`Speech recognition error: ${event.error}. Please try again.`);
+          }
+        }
+      };
+
+      recognition.onend = () => {
+        console.log('🎤 Recording ended, shouldStop:', shouldStopRef.current, 'isRecording:', isRecording);
+        
+        // Check stop flag FIRST - if user wants to stop, don't restart
+        if (shouldStopRef.current) {
+          console.log('🛑 User requested stop - not restarting');
+          setIsRecording(false);
+          setIsTranscribing(false);
+          
+          if (finalTranscript) {
+            const formatted = formatTranscribedText(finalTranscript);
+            setInputMessage(formatted);
+          }
+          
+          // Clean up
+          recognitionRef.current = null;
+          return; // Exit early - don't restart
+        }
+        
+        // Only auto-restart if user hasn't explicitly stopped AND still recording
+        if (isRecording && !shouldStopRef.current) {
+          // Small delay before restart to prevent rapid restart loops
+          setTimeout(() => {
+            // Double-check stop flag and state before restarting
+            if (!shouldStopRef.current && isRecording && recognitionRef.current) {
+              try {
+                console.log('🔄 Auto-restarting recognition...');
+                recognitionRef.current.start();
+              } catch (e) {
+                console.error('Failed to restart recognition:', e);
+                setIsRecording(false);
+                setIsTranscribing(false);
+                if (finalTranscript) {
+                  const formatted = formatTranscribedText(finalTranscript);
+                  setInputMessage(formatted);
+                }
+                recognitionRef.current = null;
+              }
+            } else {
+              // State changed or user stopped - don't restart
+              console.log('⏹️ Not restarting - state changed or user stopped');
+              setIsRecording(false);
+              setIsTranscribing(false);
+              if (finalTranscript) {
+                const formatted = formatTranscribedText(finalTranscript);
+                setInputMessage(formatted);
+              }
+            }
+          }, 150);
+        } else {
+          // Not recording or user stopped - finalize transcript
+          setIsRecording(false);
+          setIsTranscribing(false);
+          
+          if (finalTranscript) {
+            const formatted = formatTranscribedText(finalTranscript);
+            setInputMessage(formatted);
+          }
+          
+          // Clean up
+          recognitionRef.current = null;
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (error: any) {
+      console.error('Error starting speech recognition:', error);
+      alert('Failed to start speech recognition. Please check your browser settings and microphone permissions.');
+      setIsRecording(false);
+      setIsTranscribing(false);
+      shouldStopRef.current = false;
+    }
+  };
+
+  const stopRecording = () => {
+    console.log('🛑 Stopping recording...');
+    
+    // Set stop flag FIRST to prevent any auto-restart
+    shouldStopRef.current = true;
+    
+    // Update state IMMEDIATELY to prevent race conditions
+    setIsRecording(false);
+    setIsTranscribing(false);
+    
+    if (recognitionRef.current) {
+      try {
+        // Stop the recognition immediately
+        recognitionRef.current.stop();
+        // Small delay then abort to ensure it stops completely
+        setTimeout(() => {
+          try {
+            if (recognitionRef.current) {
+              recognitionRef.current.abort();
+            }
+          } catch (e) {
+            // Ignore abort errors
+          }
+        }, 50);
+      } catch (e) {
+        console.warn('Error stopping recognition:', e);
+      }
+      
+      // Clean up after a brief delay to ensure stop completes
+      setTimeout(() => {
+        recognitionRef.current = null;
+      }, 100);
+    }
+    
+    // Stop any audio stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+    
+    console.log('✅ Recording stopped');
+  };
+
+  // Advanced Text-to-speech function (using Web Speech API - FREE, no API key needed)
+  // Supports multiple languages: English, Malayalam, Hindi, Tamil, and more
+  const playTextToSpeech = (text: string, messageId: string) => {
+    // Check if browser supports Speech Synthesis
+    if (!('speechSynthesis' in window)) {
+      alert('Text-to-speech is not supported in your browser.');
+      return;
+    }
+
+    // If this message is already playing, stop it
+    if (playingMessageId === messageId) {
+      window.speechSynthesis.cancel();
+      setPlayingMessageId(null);
+      return;
+    }
+
+    // Stop any currently playing speech
+    window.speechSynthesis.cancel();
+
+    try {
+      setPlayingMessageId(messageId);
+      
+      // Detect language of the text
+      const detectedLang = detectLanguage(text);
+      console.log('🌐 Detected language for TTS:', detectedLang);
+      
+      // Clean and prepare text for better speech (preserve language-specific characters)
+      const cleanText = text
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .replace(/\n+/g, '. ') // Convert line breaks to pauses
+        .replace(/\*\*/g, '') // Remove markdown bold
+        .replace(/\*/g, '') // Remove markdown italic
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Remove markdown links, keep text
+        .replace(/`([^`]+)`/g, '$1') // Remove code backticks
+        // Don't remove non-English characters - preserve language-specific characters
+        .replace(/\s+/g, ' ') // Normalize whitespace again
+        .trim();
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      
+      // Set language based on detection with proper locale codes
+      // Map language codes to browser-supported language codes with proper accents
+      const languageMap: { [key: string]: string } = {
+        'en': 'en-US', // English - American accent (normal/default)
+        'ml': 'ml-IN', // Malayalam - Indian variant
+        'hi': 'hi-IN', // Hindi - Indian variant  
+        'ta': 'ta-IN', // Tamil - Indian variant
+      };
+      
+      // Set initial language - will be updated by selected voice
+      utterance.lang = languageMap[detectedLang] || (detectedLang === 'en' ? 'en-US' : detectedLang + '-IN') || 'en-US';
+      console.log('🔊 TTS Language detected:', detectedLang, '→ Setting to:', utterance.lang);
+      
+      // Optimized speech parameters for natural sound - language-specific tuning
+      // Adjust rate based on language for better clarity
+      const rateMap: { [key: string]: number } = {
+        'ml': 0.90, // Slightly slower for Malayalam (complex script)
+        'hi': 0.92, // Slightly slower for Hindi (complex script)
+        'ta': 0.90, // Slightly slower for Tamil (complex script)
+        'en': 0.95, // Standard rate for English
+      };
+      
+      utterance.rate = rateMap[detectedLang] || 0.95; // Slightly slower for clarity
+      utterance.pitch = 1.0; // Natural pitch
+      utterance.volume = 1.0; // Full volume
+      
+      console.log('🎚️ Speech parameters - Rate:', utterance.rate, 'Pitch:', utterance.pitch, 'Volume:', utterance.volume);
+
+      // Function to select best voice for detected language with proper accents
+      const selectBestVoice = (voices: SpeechSynthesisVoice[], targetLang: string): SpeechSynthesisVoice | null => {
+        const langCode = targetLang.split('-')[0]; // Get base language code (e.g., 'ml' from 'ml-IN')
+        const langName = langCode.toLowerCase();
+        
+        console.log('🔍 Selecting voice for language:', langCode, 'from', voices.length, 'available voices');
+        
+        // Priority order for each language - optimized for proper accents
+        const priorities: Array<(v: SpeechSynthesisVoice) => boolean> = [];
+        
+        if (langCode === 'ml') {
+          // Malayalam voices - prioritize Indian Malayalam voices
+          priorities.push(
+            (v) => v.lang === 'ml-IN' && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang === 'ml-IN',
+            (v) => v.lang.startsWith('ml-') && (v.name.toLowerCase().includes('malayalam') || v.name.toLowerCase().includes('ml')),
+            (v) => v.lang === 'ml',
+            (v) => v.lang.startsWith('ml'),
+            (v) => v.name.toLowerCase().includes('malayalam'),
+          );
+        } else if (langCode === 'hi') {
+          // Hindi voices - prioritize Indian Hindi voices
+          priorities.push(
+            (v) => v.lang === 'hi-IN' && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang === 'hi-IN',
+            (v) => v.lang.startsWith('hi-') && (v.name.toLowerCase().includes('hindi') || v.name.toLowerCase().includes('hi')),
+            (v) => v.lang === 'hi',
+            (v) => v.lang.startsWith('hi'),
+            (v) => v.name.toLowerCase().includes('hindi'),
+          );
+        } else if (langCode === 'ta') {
+          // Tamil voices - prioritize Indian Tamil voices
+          priorities.push(
+            (v) => v.lang === 'ta-IN' && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang === 'ta-IN',
+            (v) => v.lang.startsWith('ta-') && (v.name.toLowerCase().includes('tamil') || v.name.toLowerCase().includes('ta')),
+            (v) => v.lang === 'ta',
+            (v) => v.lang.startsWith('ta'),
+            (v) => v.name.toLowerCase().includes('tamil'),
+          );
+        } else {
+          // English voices - prioritize American English (normal accent), then others
+          priorities.push(
+            // US English (American accent) - NORMAL/STANDARD
+            (v) => v.lang === 'en-US' && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang === 'en-US' && (v.name.toLowerCase().includes('google') || v.name.toLowerCase().includes('natural')),
+            (v) => v.lang === 'en-US',
+            // Any US English variant
+            (v) => v.lang.startsWith('en-US'),
+            // British English (fallback)
+            (v) => v.lang.startsWith('en-GB') && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang.startsWith('en-GB') && (v.name.toLowerCase().includes('google') || v.name.toLowerCase().includes('natural')),
+            (v) => v.lang.startsWith('en-GB'),
+            // Australian/New Zealand English (fallback)
+            (v) => (v.lang.startsWith('en-AU') || v.lang.startsWith('en-NZ')) && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang.startsWith('en-AU') || v.lang.startsWith('en-NZ'),
+            // Indian English (fallback)
+            (v) => v.lang === 'en-IN' && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang === 'en-IN',
+            // Any English with quality indicators
+            (v) => v.lang.startsWith('en') && (v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('enhanced')),
+            (v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('google'),
+            (v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('natural'),
+            // Any English voice (last resort)
+            (v) => v.lang.startsWith('en'),
+          );
+        }
+
+        // Try each priority
+        for (const priority of priorities) {
+          const voice = voices.find(priority);
+          if (voice) {
+            console.log('✅ Selected voice:', voice.name, voice.lang, 'for language:', targetLang);
+            return voice;
+          }
+        }
+
+        // Fallback: Try to find any voice with matching language code
+        const fallback = voices.find(v => {
+          const vLang = v.lang.toLowerCase();
+          return vLang.startsWith(langCode) || vLang.includes(langName);
+        });
+        
+        if (fallback) {
+          console.log('⚠️ Using fallback voice:', fallback.name, fallback.lang);
+          return fallback;
+        }
+
+        // Last resort: Use first available voice
+        if (voices.length > 0) {
+          console.log('⚠️ Using first available voice as last resort:', voices[0].name, voices[0].lang);
+          return voices[0];
+        }
+
+        return null;
+      };
+
+      // Get voices and select best one for detected language
+      const getVoicesAndSpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        
+        if (voices.length === 0) {
+          console.warn('⚠️ No voices available');
+          // Still try to speak with default language
+          window.speechSynthesis.speak(utterance);
+          return;
+        }
+        
+        // Log available voices for debugging
+        console.log('🔊 Available voices:', voices.length);
+        const langVoices = voices.filter(v => v.lang.startsWith(detectedLang));
+        if (langVoices.length > 0) {
+          console.log(`✅ Found ${langVoices.length} voices for ${detectedLang}:`, 
+            langVoices.map(v => `${v.name} (${v.lang})`));
+        }
+        
+        const selectedVoice = selectBestVoice(voices, utterance.lang);
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          utterance.lang = selectedVoice.lang; // Use voice's actual language for proper accent
+          console.log('🎤 Selected voice:', selectedVoice.name, 'Language:', selectedVoice.lang, 'Accent:', selectedVoice.lang);
+          
+          // Verify the voice is actually set
+          if (utterance.voice) {
+            console.log('✅ Voice confirmed:', utterance.voice.name, utterance.voice.lang);
+          }
+        } else if (voices.length > 0) {
+          // Fallback: Use first available voice or English voice
+          const fallback = voices.find(v => v.lang.startsWith(detectedLang)) 
+                        || voices.find(v => v.lang.startsWith('en')) 
+                        || voices[0];
+          if (fallback) {
+            utterance.voice = fallback;
+            utterance.lang = fallback.lang;
+            console.log('⚠️ Using fallback voice:', fallback.name, fallback.lang);
+          }
+        }
+
+        // Speak the text with selected voice and accent
+        console.log('🗣️ Speaking with:', utterance.voice?.name || 'default', 'in', utterance.lang);
+        window.speechSynthesis.speak(utterance);
+      };
+
+      // Load voices if not already loaded - with retry mechanism
+      const loadVoicesAndSpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        
+        if (voices.length === 0) {
+          console.log('⏳ No voices loaded yet, waiting...');
+          // Wait for voices to load with timeout
+          let retryCount = 0;
+          const maxRetries = 10;
+          
+          const voicesChangedHandler = () => {
+            retryCount++;
+            const updatedVoices = window.speechSynthesis.getVoices();
+            console.log(`🔄 Voice load attempt ${retryCount}, found ${updatedVoices.length} voices`);
+            
+            if (updatedVoices.length > 0 || retryCount >= maxRetries) {
+              if (updatedVoices.length > 0) {
+                getVoicesAndSpeak();
+              } else {
+                console.warn('⚠️ No voices loaded after retries, using default');
+                // Speak with default settings
+                window.speechSynthesis.speak(utterance);
+              }
+              window.speechSynthesis.onvoiceschanged = null; // Remove handler
+            }
+          };
+          
+          window.speechSynthesis.onvoiceschanged = voicesChangedHandler;
+          
+          // Trigger voice loading
+          window.speechSynthesis.getVoices();
+          
+          // Fallback timeout
+          setTimeout(() => {
+            const finalVoices = window.speechSynthesis.getVoices();
+            if (finalVoices.length > 0 && window.speechSynthesis.onvoiceschanged) {
+              getVoicesAndSpeak();
+              window.speechSynthesis.onvoiceschanged = null;
+            } else if (finalVoices.length === 0) {
+              console.warn('⚠️ No voices available, speaking with default settings');
+              window.speechSynthesis.speak(utterance);
+            }
+          }, 1000);
+        } else {
+          // Voices already loaded
+          getVoicesAndSpeak();
+        }
+      };
+      
+      loadVoicesAndSpeak();
+
+      utterance.onend = () => {
+        setPlayingMessageId(null);
+        console.log('✅ Speech completed');
+      };
+
+      utterance.onerror = (event: any) => {
+        // Handle error more gracefully - event.error might be undefined or empty
+        const errorType = event?.error;
+        const errorMessage = event?.message;
+        
+        setPlayingMessageId(null);
+        
+        // Check if this is actually an error or just a browser quirk
+        const isEmptyError = !errorType && !errorMessage && Object.keys(event || {}).length === 0;
+        const isExpectedError = errorType === 'interrupted' || errorType === 'canceled' || errorType === 'audio-busy';
+        
+        // Only log as error if it's a real error
+        if (isEmptyError) {
+          // Empty error object - browser quirk, not a real error
+          // Don't log as error, just silently handle it
+          return;
+        }
+        
+        if (isExpectedError) {
+          // Expected errors - don't log as errors
+          if (errorType === 'audio-busy') {
+            console.log('⏸️ Audio system busy, speech canceled');
+          }
+          return;
+        }
+        
+        // Real error - log it
+        console.warn('⚠️ Speech synthesis error:', {
+          error: errorType || 'unknown',
+          message: errorMessage || 'No error message',
+          charIndex: event?.charIndex,
+          charLength: event?.charLength,
+          type: event?.type,
+        });
+        
+        // Only show alert for critical errors
+        if (errorType === 'language-not-supported' || errorType === 'voice-not-found') {
+          alert(`Voice for ${detectedLang} language may not be available in your browser. Please try a different browser or install language packs.`);
+        } else if (errorType === 'synthesis-failed' || errorType === 'synthesis-unavailable') {
+          alert('Text-to-speech is currently unavailable. Please try again later.');
+        } else if (errorType === 'network') {
+          alert('Network error while generating speech. Please check your connection.');
+        } else if (errorType && errorType !== 'unknown') {
+          // Only show alert for known error types (not empty/unknown)
+          console.warn('⚠️ Speech synthesis issue:', errorType);
+          // Don't show alert for minor/unknown errors to avoid annoying users
+        }
+      };
+
+      utterance.onpause = () => {
+        console.log('⏸️ Speech paused');
+      };
+
+      utterance.onresume = () => {
+        console.log('▶️ Speech resumed');
+      };
+
+      synthRef.current = window.speechSynthesis;
+    } catch (error: any) {
+      console.error('❌ Error playing text-to-speech:', error);
+      setPlayingMessageId(null);
+      alert('Failed to speak text. Please try again.');
+    }
+  };
+
   const handleNewConversation = async () => {
     try {
+      const clientUserId = localStorage.getItem('clientUserId');
+      if (!clientUserId) {
+        alert('User session expired. Please login again.');
+        router.push('/');
+        return;
+      }
+
       const res = await fetch('/api/conversations', {
         method: 'POST',
         headers: {
@@ -412,11 +1248,19 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           title: 'New Conversation',
+          clientUserId: clientUserId,
         }),
       });
 
       if (!res.ok) {
-        throw new Error('Failed to create conversation');
+        const errorText = await res.text().catch(() => 'Unknown error');
+        throw new Error(`Failed to create conversation: ${errorText}`);
+      }
+
+      // Check if response has content before parsing
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Invalid response type from server');
       }
 
       const newConversation = await res.json();
@@ -684,17 +1528,30 @@ export default function ChatPage() {
                 >
                   {message.sender === 'user' ? 'You' : 'Campus Assistant'}
                 </p>
-                 <div
-                  className={`text-base font-normal leading-relaxed flex max-w-[360px] rounded-2xl px-5 py-4 shadow-soft animate-slide-up break-words ${
-                     message.sender === 'user'
-                      ? 'chat-bubble-user text-white rounded-br-none'
-                      : 'chat-bubble-assistant text-charcoal rounded-bl-none'
-                  }`}
-                   style={message.sender === 'user' ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)' } : { lineHeight: '1.7' }}
-                >
-                  <div className="w-full space-y-2.5">
-                    {formatMessageContent(message.content)}
+                 <div className="flex items-start gap-2">
+                  <div
+                    className={`text-base font-normal leading-relaxed flex max-w-[360px] rounded-2xl px-5 py-4 shadow-soft animate-slide-up break-words ${
+                       message.sender === 'user'
+                        ? 'chat-bubble-user text-white rounded-br-none'
+                        : 'chat-bubble-assistant text-charcoal rounded-bl-none'
+                    }`}
+                     style={message.sender === 'user' ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)' } : { lineHeight: '1.7' }}
+                  >
+                    <div className="w-full space-y-2.5">
+                      {formatMessageContent(message.content)}
+                    </div>
                   </div>
+                  {message.sender === 'assistant' && (
+                    <button
+                      onClick={() => playTextToSpeech(message.content, message.id)}
+                      className="mt-2 flex items-center justify-center w-8 h-8 rounded-full text-charcoal/70 hover:text-charcoal hover:bg-white/20 transition-all shrink-0"
+                      title={playingMessageId === message.id ? 'Stop audio' : 'Play audio'}
+                    >
+                      <span className="material-symbols-outlined text-lg">
+                        {playingMessageId === message.id ? 'volume_up' : 'volume_down'}
+                      </span>
+                    </button>
+                  )}
                 </div>
                 {/* Display images if available - simplified, no extras */}
                 {message.sender === 'assistant' && message.images && Array.isArray(message.images) && message.images.length > 0 && (
@@ -811,12 +1668,56 @@ export default function ChatPage() {
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               className="modern-input w-full rounded-2xl py-4 px-5 text-charcoal placeholder-charcoal/60"
-              placeholder="Ask about exams, timetables, admissions..."
+              placeholder={isTranscribing ? 'Transcribing...' : 'Ask about exams, timetables, admissions...'}
               type="text"
+              disabled={isTranscribing}
             />
             <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isRecording) {
+                  stopRecording();
+                } else {
+                  // Check network before starting
+                  if (!navigator.onLine) {
+                    alert('Internet connection required for speech recognition. Please check your network connection.');
+                    return;
+                  }
+                  startRecording();
+                }
+              }}
+              disabled={(isTranscribing && !isRecording) || isLoading || networkError}
+              className={`btn-primary flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white relative overflow-hidden group transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                isRecording 
+                  ? 'animate-pulse' 
+                  : ''
+              }`}
+              style={isRecording 
+                ? { background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }
+                : networkError
+                ? { background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' }
+                : { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
+              }
+              title={
+                networkError 
+                  ? 'Network error - Check internet connection' 
+                  : isRecording 
+                  ? 'Stop recording (click to stop)' 
+                  : 'Start voice recording (click to start - requires internet)'
+              }
+            >
+              <span className="material-symbols-outlined relative z-10">
+                {networkError ? 'wifi_off' : isRecording ? 'stop' : 'mic'}
+              </span>
+              {isRecording && (
+                <span className="absolute inset-0 bg-red-400 rounded-2xl animate-ping opacity-75"></span>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </button>
+            <button
               onClick={handleSendMessage}
-              disabled={isLoading}
+              disabled={isLoading || isTranscribing}
               className="btn-primary flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white relative overflow-hidden group disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
             >

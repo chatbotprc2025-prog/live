@@ -1,14 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+/**
+ * POST /api/client/register
+ * 
+ * Registers a new client user (student/guest/parent)
+ * User must verify email via OTP after registration
+ * 
+ * Flow:
+ * 1. User registers → email_verified = false
+ * 2. User receives OTP via email
+ * 3. User verifies OTP → email_verified = true
+ * 4. User can access the app
+ */
 export async function POST(request: NextRequest) {
   try {
-    const { mobile, email, userType } = await request.json();
+    const body = await request.json();
+    const { name, mobile, email, userType } = body;
 
     // Validate required fields
     if (!mobile || !email || !userType) {
       return NextResponse.json(
         { error: 'Missing required fields: mobile, email, userType' },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    if (!emailRegex.test(normalizedEmail)) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
         { status: 400 }
       );
     }
@@ -22,27 +46,77 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create client user
+    // Check if user already exists by email
+    const existingUser = await prisma.clientUser.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingUser) {
+      // Return existing user (idempotent operation)
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'User already registered',
+          user: existingUser,
+        },
+        { status: 200 }
+      );
+    }
+
+    // Create client user with email_verified = false
+    // User must verify email via OTP after registration
     const clientUser = await prisma.clientUser.create({
       data: {
+        name: name?.trim() || null,
         mobile: mobile.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         userType: userType.toLowerCase(),
+        emailVerified: false, // Must verify via OTP
       },
     });
+
 
     return NextResponse.json(
       {
         success: true,
-        message: 'User registered successfully',
-        user: clientUser,
+        message: 'User registered successfully. Please verify your email with the OTP sent to your inbox.',
+        user: {
+          id: clientUser.id,
+          email: clientUser.email,
+          emailVerified: clientUser.emailVerified,
+        },
       },
       { status: 201 }
     );
   } catch (error: any) {
-    console.error('Error registering client user:', error);
+    console.error('❌ Error registering client user:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
+    
+    // Handle specific Prisma errors
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0] || 'field';
+      const fieldName = field === 'email' ? 'email address' : field === 'mobile' ? 'mobile number' : field;
+      return NextResponse.json(
+        { error: `This ${fieldName} is already registered. Please use a different ${fieldName}.` },
+        { status: 400 }
+      );
+    }
+    
+    // Return detailed error for debugging
+    const errorMessage = error.message || 'Unknown error occurred';
+    
     return NextResponse.json(
-      { error: 'Failed to register user', details: error.message },
+      { 
+        error: 'Failed to register user', 
+        details: errorMessage,
+        code: error.code || 'UNKNOWN',
+        type: error.name || 'Error'
+      },
       { status: 500 }
     );
   }

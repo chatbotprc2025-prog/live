@@ -9,6 +9,7 @@ interface ClientUser {
   mobile: string;
   email: string;
   userType: string;
+  emailVerified: boolean;
   createdAt: string;
 }
 
@@ -171,6 +172,7 @@ export default function ClientUsersPage() {
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Mobile</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Type</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Verified</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Registered</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Action</th>
                   </tr>
@@ -191,6 +193,13 @@ export default function ClientUsersPage() {
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {user.userType.charAt(0).toUpperCase() + user.userType.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          user.emailVerified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {user.emailVerified ? '✓ YES' : '✗ NO'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
@@ -267,6 +276,16 @@ export default function ClientUsersPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-2">Email</label>
                   <p className="text-lg text-gray-900 break-all">{selectedUser.email}</p>
+                </div>
+
+                {/* Verified Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Email Verified</label>
+                  <span className={`px-4 py-2 rounded-full text-sm font-medium inline-block ${
+                    selectedUser.emailVerified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {selectedUser.emailVerified ? '✓ YES' : '✗ NO'}
+                  </span>
                 </div>
 
                 {/* Registration Date */}
