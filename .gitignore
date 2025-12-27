@@ -49,3 +49,7 @@ next-env.d.ts
 
 /app/generated/prisma
 *.db
+node_modules/
+.next/
+.env
+.env.local
