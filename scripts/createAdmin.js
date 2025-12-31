@@ -1,3 +1,4 @@
+const { PrismaClient } = require('@prisma/client');
 const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -25,22 +26,22 @@ const prisma = buildPrismaClient();
 
 async function createAdmin() {
   try {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const hashedPassword = await bcrypt.hash('chat@2025', 10);
     
     const admin = await prisma.user.upsert({
-      where: { email: 'admin@pce.edu' },
+      where: { email: 'chatbot.prc2025@gmail.com' },
       update: {},
       create: {
         name: 'Admin User',
-        email: 'admin@pce.edu',
+        email: 'chatbot.prc2025@gmail.com',
         passwordHash: hashedPassword,
         role: 'admin',
       },
     });
 
     console.log('✅ Admin user created:', admin.email);
-    console.log('📧 Email: admin@pce.edu');
-    console.log('🔑 Password: admin123');
+    console.log('📧 Email: chatbot.prc2025@gmail.com');
+    console.log('🔑 Password: chat@2025');
   } catch (error) {
     console.error('❌ Error creating admin:', error);
   } finally {

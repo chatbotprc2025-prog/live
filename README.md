@@ -82,8 +82,8 @@ npm run dev
 ## Default Credentials
 
 After seeding, you can login to the admin portal with:
-- **Email**: `admin@pce.edu`
-- **Password**: `admin123`
+- **Email**: `chatbot.prc2025@gmail.com`
+- **Password**: `chat@2025`
 
 ## Project Structure
 

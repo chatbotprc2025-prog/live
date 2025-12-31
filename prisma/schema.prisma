@@ -61,6 +61,7 @@ model Room {
   textDirections String? @map("text_directions")
   latitude      Float?
   longitude     Float?
+  imageUrl      String?  @map("image_url")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
   
@@ -207,4 +208,38 @@ model ExamTimetable {
   updatedAt   DateTime @updatedAt
 
   @@map("exam_timetables")
+}
+
+model AcademicPdf {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  semester    String?
+  subject     String?
+  category    String?  // e.g., "Notes", "Syllabus", "Question Paper", "Study Material", "Others"
+  fileUrl     String   @map("file_url")
+  uploadedBy  String?  @map("uploaded_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([semester])
+  @@index([subject])
+  @@index([category])
+  @@map("academic_pdfs")
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  name        String
+  department  String?
+  designation String?
+  email       String?
+  phone       String?
+  category    String?  // e.g., "Administration", "Academic", "Support", "Emergency"
+  priority    Int      @default(0) // Higher number = higher priority for display order
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@map("contacts")
 }

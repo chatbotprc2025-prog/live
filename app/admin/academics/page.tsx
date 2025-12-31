@@ -2,53 +2,39 @@
 
 import { useEffect, useState } from 'react';
 
-interface ClassTimetable {
+interface AcademicPdf {
   id: string;
-  programName: string;
-  semester: string;
-  dayOfWeek: string;
-  period: string;
-  subject: string;
-  faculty: string | null;
-  room: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ExamTimetable {
-  id: string;
-  programName: string;
-  semester: string;
-  examName: string;
-  subject: string;
-  examDate: string;
-  startTime: string;
-  endTime: string;
-  room: string | null;
+  title: string;
+  description: string | null;
+  semester: string | null;
+  subject: string | null;
+  category: string | null;
+  fileUrl: string;
+  uploadedBy: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export default function AcademicsPage() {
-  const [classTimetables, setClassTimetables] = useState<ClassTimetable[]>([]);
-  const [examTimetables, setExamTimetables] = useState<ExamTimetable[]>([]);
+  const [academicPdfs, setAcademicPdfs] = useState<AcademicPdf[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'class' | 'exam'>('class');
   const [showModal, setShowModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<ClassTimetable | ExamTimetable | null>(null);
-  const [formData, setFormData] = useState<any>({
-    programName: '',
+  const [editingItem, setEditingItem] = useState<AcademicPdf | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Helper function to get initial form data with all fields defined
+  const getInitialFormData = () => ({
+    title: '',
+    description: '',
     semester: '',
-    dayOfWeek: '',
-    period: '',
     subject: '',
-    faculty: '',
-    room: '',
-    examName: '',
-    examDate: '',
-    startTime: '',
-    endTime: '',
+    category: '',
+    fileUrl: '',
   });
+
+  const [formData, setFormData] = useState<any>(getInitialFormData());
 
   useEffect(() => {
     loadData();
@@ -57,53 +43,72 @@ export default function AcademicsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [classRes, examRes] = await Promise.all([
-        fetch('/api/admin/class-timetable'),
-        fetch('/api/admin/exam-timetable'),
-      ]);
-      
-      const classData = await classRes.json();
-      const examData = await examRes.json();
-      
-      setClassTimetables(classData || []);
-      setExamTimetables(examData || []);
+      const pdfsRes = await fetch('/api/admin/academic-pdfs');
+      const pdfsData = pdfsRes.ok ? await pdfsRes.json() : [];
+      setAcademicPdfs(Array.isArray(pdfsData) ? pdfsData : []);
     } catch (error) {
       console.error('Failed to load academics data:', error);
+      setAcademicPdfs([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Please select a PDF file');
+      return;
+    }
+
+    setUploadingPdf(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/academic-pdfs/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to upload PDF');
+      }
+
+      const data = await res.json();
+      setFormData((prev: any) => ({ ...prev, fileUrl: data.url }));
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload PDF');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const handlePdfSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = activeTab === 'class'
-        ? editingItem
-          ? `/api/admin/class-timetable/${editingItem.id}`
-          : '/api/admin/class-timetable'
-        : editingItem
-          ? `/api/admin/exam-timetable/${editingItem.id}`
-          : '/api/admin/exam-timetable';
+      if (!formData.title || !formData.fileUrl) {
+        alert('Title and PDF file are required');
+        return;
+      }
+
+      const url = editingItem
+        ? `/api/admin/academic-pdfs/${editingItem.id}`
+        : '/api/admin/academic-pdfs';
       
       const method = editingItem ? 'PUT' : 'POST';
       
-      const payload = activeTab === 'class' ? {
-        programName: formData.programName,
-        semester: formData.semester,
-        dayOfWeek: formData.dayOfWeek,
-        period: formData.period,
-        subject: formData.subject,
-        faculty: formData.faculty || null,
-        room: formData.room || null,
-      } : {
-        programName: formData.programName,
-        semester: formData.semester,
-        examName: formData.examName,
-        subject: formData.subject,
-        examDate: formData.examDate,
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-        room: formData.room || null,
+      const payload = {
+        title: formData.title,
+        description: formData.description || null,
+        semester: formData.semester || null,
+        subject: formData.subject || null,
+        category: formData.category || null,
+        fileUrl: formData.fileUrl,
       };
 
       const res = await fetch(url, {
@@ -115,174 +120,199 @@ export default function AcademicsPage() {
       if (res.ok) {
         setShowModal(false);
         setEditingItem(null);
-        setFormData({
-          programName: '',
-          semester: '',
-          dayOfWeek: '',
-          period: '',
-          subject: '',
-          faculty: '',
-          room: '',
-          examName: '',
-          examDate: '',
-          startTime: '',
-          endTime: '',
-        });
+        setFormData(getInitialFormData());
         loadData();
       } else {
         const error = await res.json();
         alert(error.error || 'Failed to save');
       }
     } catch (error) {
-      console.error('Failed to save:', error);
-      alert('Failed to save');
+      console.error('Failed to save PDF:', error);
+      alert('Failed to save PDF');
     }
   };
 
-  const handleEdit = (item: ClassTimetable | ExamTimetable) => {
+  const handleEdit = (item: AcademicPdf) => {
     setEditingItem(item);
-    if (activeTab === 'class') {
-      const classItem = item as ClassTimetable;
+    const baseFormData = getInitialFormData();
       setFormData({
-        programName: classItem.programName,
-        semester: classItem.semester,
-        dayOfWeek: classItem.dayOfWeek,
-        period: classItem.period,
-        subject: classItem.subject,
-        faculty: classItem.faculty || '',
-        room: classItem.room || '',
-      });
-    } else {
-      const examItem = item as ExamTimetable;
-      setFormData({
-        programName: examItem.programName,
-        semester: examItem.semester,
-        examName: examItem.examName,
-        subject: examItem.subject,
-        examDate: examItem.examDate.split('T')[0],
-        startTime: examItem.startTime,
-        endTime: examItem.endTime,
-        room: examItem.room || '',
-      });
-    }
+      ...baseFormData,
+      title: item.title,
+      description: item.description || '',
+      semester: item.semester || '',
+      subject: item.subject || '',
+      category: item.category || '',
+      fileUrl: item.fileUrl,
+    });
+    setImagePreview(item.fileUrl || null);
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this entry?')) return;
+    if (!confirm('Are you sure you want to delete this PDF?')) return;
     
     try {
-      const url = activeTab === 'class'
-        ? `/api/admin/class-timetable/${id}`
-        : `/api/admin/exam-timetable/${id}`;
-      
-      const res = await fetch(url, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/academic-pdfs/${id}`, { method: 'DELETE' });
       
       if (res.ok) {
         loadData();
+        setSelectedItems(new Set());
+        alert('PDF deleted successfully');
       } else {
-        alert('Failed to delete');
+        const errorData = await res.json().catch(() => ({ error: 'Failed to delete' }));
+        alert(errorData.error || 'Failed to delete');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete:', error);
-      alert('Failed to delete');
+      alert(error?.message || 'Failed to delete');
     }
   };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedItems(new Set(academicPdfs.map(item => item.id)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (id: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) {
+      alert('Please select at least one item to delete');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedItems.size} PDF(s)?`)) return;
+
+    try {
+      const deletePromises = Array.from(selectedItems).map(id =>
+        fetch(`/api/admin/academic-pdfs/${id}`, { method: 'DELETE' })
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
+
+      if (failed.length > 0) {
+        alert(`Failed to delete ${failed.length} item(s). Please try again.`);
+      } else {
+        alert(`Successfully deleted ${selectedItems.size} PDF(s)`);
+      }
+
+      setSelectedItems(new Set());
+      loadData();
+    } catch (error: any) {
+      console.error('Failed to delete items:', error);
+      alert(error?.message || 'Failed to delete items');
+    }
+  };
+
+  const isAllSelected = academicPdfs.length > 0 && selectedItems.size === academicPdfs.length;
+  const isIndeterminate = selectedItems.size > 0 && selectedItems.size < academicPdfs.length;
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-charcoal mb-2">Academics</h1>
-          <p className="text-gray-600">Manage class and exam timetables</p>
+          <p className="text-gray-600">Manage academic PDFs</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingItem(null);
-            setFormData({
-              programName: '',
-              semester: '',
-              dayOfWeek: '',
-              period: '',
-              subject: '',
-              faculty: '',
-              room: '',
-              examName: '',
-              examDate: '',
-              startTime: '',
-              endTime: '',
-            });
-            setShowModal(true);
-          }}
-          className="btn-primary px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all"
-          style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
-        >
-          + Add Entry
-        </button>
+        <div className="flex items-center gap-3">
+          {selectedItems.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all"
+              style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+            >
+              Delete Selected ({selectedItems.size})
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setEditingItem(null);
+              setFormData(getInitialFormData());
+              setImagePreview(null);
+              setShowModal(true);
+            }}
+            className="btn-primary px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all"
+            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+          >
+            + Upload PDF
+          </button>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('class')}
-          className={`px-6 py-3 font-semibold transition-all ${
-            activeTab === 'class'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Class Timetable ({classTimetables.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('exam')}
-          className={`px-6 py-3 font-semibold transition-all ${
-            activeTab === 'exam'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Exam Timetable ({examTimetables.length})
-        </button>
-      </div>
-
-      {/* Class Timetable */}
-      {activeTab === 'class' && (
+      {/* Academic PDFs */}
+      {
         <div className="glass-card rounded-2xl overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
           {loading ? (
             <div className="p-12 text-center">
               <p className="text-gray-600">Loading...</p>
             </div>
-          ) : classTimetables.length === 0 ? (
+          ) : !Array.isArray(academicPdfs) || academicPdfs.length === 0 ? (
             <div className="p-12 text-center">
-              <p className="text-gray-600">No class timetable entries found</p>
+              <p className="text-gray-600">No academic PDFs found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Program</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold w-12">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        ref={(input) => {
+                          if (input) input.indeterminate = isIndeterminate;
+                        }}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Title</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Semester</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Day</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Period</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Subject</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Faculty</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Room</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Category</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {classTimetables.map((item) => (
-                    <tr key={item.id} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm">{item.programName}</td>
-                      <td className="px-6 py-4 text-sm">{item.semester}</td>
-                      <td className="px-6 py-4 text-sm">{item.dayOfWeek}</td>
-                      <td className="px-6 py-4 text-sm">{item.period}</td>
-                      <td className="px-6 py-4 text-sm">{item.subject}</td>
-                      <td className="px-6 py-4 text-sm">{item.faculty || '-'}</td>
-                      <td className="px-6 py-4 text-sm">{item.room || '-'}</td>
+                  {Array.isArray(academicPdfs) && academicPdfs.map((item) => (
+                    <tr 
+                      key={item.id} 
+                      className={`border-b border-gray-200 hover:bg-gray-50 ${selectedItems.has(item.id) ? 'bg-blue-50' : ''}`}
+                    >
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(item.id)}
+                          onChange={() => handleSelectItem(item.id)}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-sm">{item.title}</td>
+                      <td className="px-6 py-4 text-sm">{item.semester || '-'}</td>
+                      <td className="px-6 py-4 text-sm">{item.subject || '-'}</td>
+                      <td className="px-6 py-4 text-sm">{item.category || '-'}</td>
                       <td className="px-6 py-4 text-sm">
                         <div className="flex gap-2">
+                          <a
+                            href={item.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            View
+                          </a>
                           <button
                             onClick={() => handleEdit(item)}
                             className="text-blue-600 hover:text-blue-800 font-medium"
@@ -304,224 +334,122 @@ export default function AcademicsPage() {
             </div>
           )}
         </div>
-      )}
-
-      {/* Exam Timetable */}
-      {activeTab === 'exam' && (
-        <div className="glass-card rounded-2xl overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
-          {loading ? (
-            <div className="p-12 text-center">
-              <p className="text-gray-600">Loading...</p>
-            </div>
-          ) : examTimetables.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-gray-600">No exam timetable entries found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Program</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Semester</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Exam Name</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Subject</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Date</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Time</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Room</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {examTimetables.map((item) => (
-                    <tr key={item.id} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm">{item.programName}</td>
-                      <td className="px-6 py-4 text-sm">{item.semester}</td>
-                      <td className="px-6 py-4 text-sm">{item.examName}</td>
-                      <td className="px-6 py-4 text-sm">{item.subject}</td>
-                      <td className="px-6 py-4 text-sm">{new Date(item.examDate).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm">{item.startTime} - {item.endTime}</td>
-                      <td className="px-6 py-4 text-sm">{item.room || '-'}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-600 hover:text-red-800 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+      }
 
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="glass-card rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(20px)' }}>
             <h2 className="text-2xl font-bold text-charcoal mb-4">
-              {editingItem ? 'Edit Entry' : 'Add Entry'} - {activeTab === 'class' ? 'Class Timetable' : 'Exam Timetable'}
+              {editingItem ? 'Edit PDF' : 'Upload Academic PDF'}
             </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-charcoal mb-2">Program Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.programName}
-                    onChange={(e) => setFormData({ ...formData, programName: e.target.value })}
-                    className="modern-input w-full rounded-xl py-3 px-4"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-charcoal mb-2">Semester *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.semester}
-                    onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                    className="modern-input w-full rounded-xl py-3 px-4"
-                  />
-                </div>
-              </div>
-
-              {activeTab === 'class' ? (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">Day of Week *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.dayOfWeek}
-                        onChange={(e) => setFormData({ ...formData, dayOfWeek: e.target.value })}
-                        className="modern-input w-full rounded-xl py-3 px-4"
-                        placeholder="e.g., Monday"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">Period *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.period}
-                        onChange={(e) => setFormData({ ...formData, period: e.target.value })}
-                        className="modern-input w-full rounded-xl py-3 px-4"
-                        placeholder="e.g., Period 1"
-                      />
-                    </div>
-                  </div>
+            <form onSubmit={handlePdfSubmit} className="space-y-4">
+              <>
                   <div>
-                    <label className="block text-sm font-medium text-charcoal mb-2">Subject *</label>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Title *</label>
                     <input
                       type="text"
                       required
-                      value={formData.subject}
-                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                      value={formData.title || ''}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="e.g., Data Structures Notes"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Description</label>
+                    <textarea
+                      value={formData.description || ''}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="Optional description"
+                      rows={3}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">Faculty</label>
+                      <label className="block text-sm font-medium text-charcoal mb-2">Semester</label>
                       <input
                         type="text"
-                        value={formData.faculty}
-                        onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
+                        value={formData.semester || ''}
+                        onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
                         className="modern-input w-full rounded-xl py-3 px-4"
+                        placeholder="e.g., Semester 1"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">Room</label>
+                      <label className="block text-sm font-medium text-charcoal mb-2">Subject</label>
                       <input
                         type="text"
-                        value={formData.room}
-                        onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                        value={formData.subject || ''}
+                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                         className="modern-input w-full rounded-xl py-3 px-4"
+                        placeholder="e.g., Computer Science"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Category</label>
+                    <select
+                      value={formData.category || ''}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                    >
+                      <option value="">Select category</option>
+                      <option value="Notes">Notes</option>
+                      <option value="Syllabus">Syllabus</option>
+                      <option value="Question Paper">Question Paper</option>
+                      <option value="Study Material">Study Material</option>
+                      <option value="Others">Others</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">PDF File *</label>
+                    {formData.fileUrl ? (
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                        <span className="material-symbols-outlined text-blue-600">description</span>
+                        <a
+                          href={formData.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline flex-1"
+                        >
+                          {formData.fileUrl.split('/').pop()}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, fileUrl: '' })}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          onChange={handlePdfUpload}
+                          disabled={uploadingPdf}
+                          className="hidden"
+                          id="pdf-upload"
+                        />
+                        <label
+                          htmlFor="pdf-upload"
+                          className="cursor-pointer flex flex-col items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-4xl text-gray-400">
+                            {uploadingPdf ? 'hourglass_empty' : 'upload_file'}
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            {uploadingPdf ? 'Uploading...' : 'Click to upload PDF'}
+                          </span>
+                          <span className="text-xs text-gray-400">Max 50MB (PDF only)</span>
+                        </label>
+                      </div>
+                    )}
                   </div>
                 </>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-charcoal mb-2">Exam Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.examName}
-                      onChange={(e) => setFormData({ ...formData, examName: e.target.value })}
-                      className="modern-input w-full rounded-xl py-3 px-4"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-charcoal mb-2">Subject *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.subject}
-                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                      className="modern-input w-full rounded-xl py-3 px-4"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">Exam Date *</label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.examDate}
-                        onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
-                        className="modern-input w-full rounded-xl py-3 px-4"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">Room</label>
-                      <input
-                        type="text"
-                        value={formData.room}
-                        onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                        className="modern-input w-full rounded-xl py-3 px-4"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">Start Time *</label>
-                      <input
-                        type="time"
-                        required
-                        value={formData.startTime}
-                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                        className="modern-input w-full rounded-xl py-3 px-4"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-charcoal mb-2">End Time *</label>
-                      <input
-                        type="time"
-                        required
-                        value={formData.endTime}
-                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                        className="modern-input w-full rounded-xl py-3 px-4"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
 
               <div className="flex gap-3 justify-end pt-4">
                 <button
@@ -540,7 +468,7 @@ export default function AcademicsPage() {
                   className="px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all"
                   style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
                 >
-                  {editingItem ? 'Update' : 'Create'}
+                  {editingItem ? 'Update' : 'Upload'}
                 </button>
               </div>
             </form>

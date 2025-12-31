@@ -113,23 +113,28 @@ export async function getStaffInfo(query: string): Promise<any[]> {
     take: 50, // Get more to filter
   });
   
-  // Filter for case-insensitive matches with expanded terms
+  // If query is very generic (just asking about staff/faculty), return all staff
+  if (queryLower.includes('facult') || queryLower.includes('staff') || queryLower.includes('teacher') || queryLower.includes('professor')) {
+    if (queryLower.length < 20 || queryLower.includes('all')) {
+      return allStaff.slice(0, 10);
+    }
+  }
+  
+  // Filter for case-insensitive matches with expanded terms - more lenient
   const filtered = allStaff.filter((staff) => {
     const nameLower = staff.name.toLowerCase();
     const deptLower = staff.department.toLowerCase();
     const desigLower = staff.designation.toLowerCase();
     const emailLower = (staff.email || '').toLowerCase();
     
-    // Check if any expanded term matches
+    // Check if any expanded term matches - use original terms, not cleaned
     return expandedTerms.some(term => {
-      // Remove common words for better matching
-      const cleanTerm = term.replace(/\b(all|the|tell|me|about|names|faculties|faculty)\b/g, '').trim();
-      if (!cleanTerm) return false;
+      if (!term || term.length < 2) return false;
       
-      return nameLower.includes(cleanTerm) || 
-             deptLower.includes(cleanTerm) || 
-             desigLower.includes(cleanTerm) ||
-             emailLower.includes(cleanTerm);
+      return nameLower.includes(term) || 
+             deptLower.includes(term) || 
+             desigLower.includes(term) ||
+             emailLower.includes(term);
     });
   });
   
@@ -138,7 +143,7 @@ export async function getStaffInfo(query: string): Promise<any[]> {
     return allStaff.slice(0, 10);
   }
   
-  return filtered.slice(0, 10);
+  return filtered.length > 0 ? filtered.slice(0, 10) : [];
 }
 
 /**
@@ -150,49 +155,77 @@ export async function getFeeInfo(query: string): Promise<any[]> {
   // SQLite doesn't support case-insensitive mode, so fetch all fees
   // and filter in memory
   const allFees = await prisma.fee.findMany({
-    take: 50, // Get more to filter
+    take: 100, // Get more to filter for better accuracy
+    orderBy: { academicYear: 'desc' }, // Most recent first
   });
   
-  // Filter for case-insensitive matches
+  // If query is very generic (just asking about fees), return all fees
+  if (queryLower.includes('fee') || queryLower.includes('payment') || queryLower.includes('tuition') || queryLower.includes('cost')) {
+    if (queryLower.length < 25) {
+      return allFees.slice(0, 20);
+    }
+  }
+  
+  // Filter for case-insensitive matches - use original query, not cleaned
   const filtered = allFees.filter((fee) => {
-    const programLower = fee.programName.toLowerCase();
-    const yearLower = fee.academicYear.toLowerCase();
-    const categoryLower = fee.category.toLowerCase();
+    const programLower = (fee.programName || '').toLowerCase();
+    const yearLower = (fee.academicYear || '').toLowerCase();
+    const categoryLower = (fee.category || '').toLowerCase();
     
     return programLower.includes(queryLower) || 
            yearLower.includes(queryLower) || 
            categoryLower.includes(queryLower);
   });
   
-  return filtered.slice(0, 10);
+  // If no specific match but query mentions fees, return all
+  if (filtered.length === 0 && (queryLower.includes('fee') || queryLower.includes('payment'))) {
+    return allFees.slice(0, 20);
+  }
+  
+  return filtered.length > 0 ? filtered.slice(0, 20) : [];
 }
 
 /**
  * Query room/location information from database with in-memory filtering
+ * Returns the most relevant room or null
  */
 export async function getRoomDirections(query: string): Promise<any | null> {
   const queryLower = query.toLowerCase();
   
+  // Clean query - remove common words
+  const cleanQuery = queryLower.replace(/\b(all|the|tell|me|about|show|find|where|is|location|locations|room|rooms|building|buildings)\b/g, '').trim();
+  
   // SQLite doesn't support case-insensitive mode, so fetch all rooms
   // and filter in memory
   const allRooms = await prisma.room.findMany({
-    take: 50, // Get more to filter
+    take: 100, // Get more to filter for better accuracy
   });
+  
+  // If query is too generic, return null (let user be more specific)
+  if (!cleanQuery || cleanQuery.length < 2) {
+    return null;
+  }
   
   // Try to find by room code first (exact match preferred)
   const roomByCode = allRooms.find((room) => 
-    room.roomCode.toLowerCase().includes(queryLower)
+    room.roomCode.toLowerCase().includes(cleanQuery)
   );
   
   if (roomByCode) return roomByCode;
   
-  // Then try building name or floor
+  // Then try building name
   const roomByBuilding = allRooms.find((room) => 
-    room.buildingName.toLowerCase().includes(queryLower) ||
-    room.floor.toLowerCase().includes(queryLower)
+    room.buildingName.toLowerCase().includes(cleanQuery)
   );
   
-  return roomByBuilding || null;
+  if (roomByBuilding) return roomByBuilding;
+  
+  // Try floor if query matches
+  const roomByFloor = allRooms.find((room) => 
+    room.floor.toLowerCase().includes(cleanQuery)
+  );
+  
+  return roomByFloor || null;
 }
 
 /**
@@ -262,5 +295,81 @@ export async function getExamTimetable(query: string): Promise<any[]> {
   });
   
   return filtered.slice(0, 20);
+}
+
+/**
+ * Query contact information from database with in-memory filtering
+ */
+export async function getContactInfo(query: string): Promise<any[]> {
+  const queryLower = query.toLowerCase();
+  
+  // Fetch all contacts
+  const allContacts = await prisma.contact.findMany({
+    take: 50,
+    orderBy: { priority: 'desc' },
+  });
+  
+  // If query is very generic or mentions contacts, return all
+  if (queryLower.includes('contact') && queryLower.length < 15) {
+    return allContacts.slice(0, 10);
+  }
+  
+  // Filter for case-insensitive matches - use original query, not cleaned
+  const filtered = allContacts.filter((contact) => {
+    const nameLower = (contact.name || '').toLowerCase();
+    const deptLower = (contact.department || '').toLowerCase();
+    const desigLower = (contact.designation || '').toLowerCase();
+    const emailLower = (contact.email || '').toLowerCase();
+    const phoneLower = (contact.phone || '').toLowerCase();
+    const categoryLower = (contact.category || '').toLowerCase();
+    
+    // Use original query for matching - more lenient
+    return nameLower.includes(queryLower) ||
+           deptLower.includes(queryLower) ||
+           desigLower.includes(queryLower) ||
+           emailLower.includes(queryLower) ||
+           phoneLower.includes(queryLower) ||
+           categoryLower.includes(queryLower);
+  });
+  
+  return filtered.slice(0, 10);
+}
+
+/**
+ * Query academic PDF information from database with in-memory filtering
+ */
+export async function getAcademicPdfInfo(query: string): Promise<any[]> {
+  const queryLower = query.toLowerCase();
+  
+  // Fetch all academic PDFs
+  const allPdfs = await prisma.academicPdf.findMany({
+    take: 50,
+    orderBy: { createdAt: 'desc' },
+  });
+  
+  // If query is very generic, return recent PDFs
+  if (queryLower.includes('pdf') || queryLower.includes('academic') || queryLower.includes('document')) {
+    if (queryLower.length < 15) {
+      return allPdfs.slice(0, 10);
+    }
+  }
+  
+  // Filter for case-insensitive matches - use original query
+  const filtered = allPdfs.filter((pdf) => {
+    const titleLower = (pdf.title || '').toLowerCase();
+    const descLower = (pdf.description || '').toLowerCase();
+    const semesterLower = (pdf.semester || '').toLowerCase();
+    const subjectLower = (pdf.subject || '').toLowerCase();
+    const categoryLower = (pdf.category || '').toLowerCase();
+    
+    // Use original query for matching - more lenient
+    return titleLower.includes(queryLower) ||
+           descLower.includes(queryLower) ||
+           semesterLower.includes(queryLower) ||
+           subjectLower.includes(queryLower) ||
+           categoryLower.includes(queryLower);
+  });
+  
+  return filtered.slice(0, 10);
 }
 

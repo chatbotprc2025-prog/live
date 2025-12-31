@@ -20,6 +20,7 @@ export default function ClientUsersPage() {
   const [selectedUser, setSelectedUser] = useState<ClientUser | null>(null);
   const [error, setError] = useState('');
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   // Fetch users based on filter
   useEffect(() => {
@@ -70,6 +71,62 @@ export default function ClientUsersPage() {
     }
   };
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedItems(new Set(users.map(user => user.id)));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (id: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) {
+      alert('Please select at least one user to delete');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedItems.size} user(s)? This action cannot be undone.`)) return;
+
+    try {
+      const deletePromises = Array.from(selectedItems).map(id =>
+        fetch(`/api/admin/client-users/${id}`, { method: 'DELETE' })
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
+
+      if (failed.length > 0) {
+        alert(`Failed to delete ${failed.length} user(s). Please try again.`);
+      } else {
+        alert(`Successfully deleted ${selectedItems.size} user(s)`);
+      }
+
+      setSelectedItems(new Set());
+      // Refresh the user list
+      const url = filter === 'all' 
+        ? '/api/admin/client-users'
+        : `/api/admin/client-users?userType=${filter}`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data.users || []);
+      }
+    } catch (error: any) {
+      console.error('Failed to delete users:', error);
+      alert(error?.message || 'Failed to delete users');
+    }
+  };
+
   // Delete user
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
@@ -91,6 +148,11 @@ export default function ClientUsersPage() {
 
       // Remove user from list
       setUsers(prev => prev.filter(u => u.id !== userId));
+      setSelectedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
       
       // Close detail drawer if it was open for this user
       if (selectedUser?.id === userId) {
@@ -165,25 +227,58 @@ export default function ClientUsersPage() {
               <p className="text-gray-600">No users found for this filter</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Mobile</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Type</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Verified</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Registered</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr
-                      key={user.id}
-                      className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4 text-sm text-gray-900">{user.mobile}</td>
+            <>
+              {selectedItems.size > 0 && (
+                <div className="px-6 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900">
+                    {selectedItems.size} user(s) selected
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Delete Selected
+                  </button>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-100 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 w-12">
+                        <input
+                          type="checkbox"
+                          checked={users.length > 0 && selectedItems.size === users.length}
+                          ref={(input) => {
+                            if (input) input.indeterminate = selectedItems.size > 0 && selectedItems.size < users.length;
+                          }}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                      </th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Mobile</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Type</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Verified</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Registered</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <tr
+                        key={user.id}
+                        className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${selectedItems.has(user.id) ? 'bg-blue-50' : ''}`}
+                      >
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedItems.has(user.id)}
+                            onChange={() => handleSelectItem(user.id)}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">{user.mobile}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{user.email}</td>
                       <td className="px-6 py-4 text-sm">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -227,6 +322,7 @@ export default function ClientUsersPage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
 
           {/* Stats Footer */}

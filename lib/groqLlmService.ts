@@ -24,19 +24,21 @@ export async function callGroqLLM(
   // Get language instruction for LLM
   const languageInstruction = getLanguageInstruction(language);
 
-  // Prioritize knowledge base content
+  // ALL SOURCES HAVE EQUAL PRIORITY - Check all available data sources
   const hasKnowledge = data?.knowledge && Array.isArray(data.knowledge) && data.knowledge.length > 0;
   const hasStaff = data?.staff && Array.isArray(data.staff) && data.staff.length > 0;
   const hasFees = data?.fees && Array.isArray(data.fees) && data.fees.length > 0;
   const hasRoom = data?.room;
   const hasClassTimetable = data?.classTimetable && Array.isArray(data.classTimetable) && data.classTimetable.length > 0;
   const hasExamTimetable = data?.examTimetable && Array.isArray(data.examTimetable) && data.examTimetable.length > 0;
+  const hasContacts = data?.contacts && Array.isArray(data.contacts) && data.contacts.length > 0;
+  const hasAcademicPdfs = data?.academicPdfs && Array.isArray(data.academicPdfs) && data.academicPdfs.length > 0;
 
-  // Format knowledge base entries for better understanding
+  // Format knowledge base entries - EQUAL PRIORITY with all other sources
   let knowledgeSection = '';
   if (hasKnowledge) {
     knowledgeSection = `
-📚 KNOWLEDGE BASE CONTENT (Admin-provided information - EQUAL PRIORITY with other sources):
+📚 KNOWLEDGE BASE CONTENT (EQUAL PRIORITY with all other sources):
 ${data.knowledge.map((k: any, idx: number) => `
 Entry ${idx + 1}:
 - Title: ${k.name || 'Untitled'}
@@ -84,10 +86,17 @@ CRITICAL: Use names EXACTLY as shown above. If a name includes "Dr", "Mr", "Mrs"
   let feesSection = '';
   if (hasFees) {
     feesSection = `
-💰 FEE INFORMATION (EQUAL PRIORITY):
-${JSON.stringify(data.fees, null, 2)}
+💰 FEE INFORMATION (EQUAL PRIORITY - USE EXACTLY AS PROVIDED):
+${data.fees.map((fee: any) => ({
+  program: fee.programName || 'Not specified',
+  academicYear: fee.academicYear || 'Not specified',
+  yearOrSemester: fee.yearOrSemester || 'Not specified',
+  category: fee.category || 'Not specified',
+  amount: typeof fee.amount === 'object' && fee.amount !== null ? fee.amount.toString() : (fee.amount || '0'),
+  currency: fee.currency || 'INR',
+})).map((fee: any, idx: number) => `Fee ${idx + 1}: ${JSON.stringify(fee, null, 2)}`).join('\n\n')}
 
-CRITICAL: Use all fee information EXACTLY as shown. This source has EQUAL PRIORITY with knowledge base and other sources.
+CRITICAL: Use all fee information EXACTLY as shown, including amounts and currency. This source has EQUAL PRIORITY with knowledge base and other sources.
 `;
   }
 
@@ -137,9 +146,43 @@ CRITICAL: Use all exam information EXACTLY as shown. This source has EQUAL PRIOR
 `;
   }
 
+  let contactsSection = '';
+  if (hasContacts) {
+    contactsSection = `
+📞 CONTACT INFORMATION (EQUAL PRIORITY - USE EXACTLY AS PROVIDED):
+${data.contacts.map((contact: any) => ({
+  name: contact.name || 'Unknown',
+  department: contact.department || 'Not specified',
+  designation: contact.designation || 'Not specified',
+  email: contact.email || 'Not available',
+  phone: contact.phone || 'Not available',
+  category: contact.category || 'Not specified',
+})).map((c: any, idx: number) => `Contact ${idx + 1}: ${JSON.stringify(c, null, 2)}`).join('\n\n')}
+
+CRITICAL: Use all contact information EXACTLY as shown. This source has EQUAL PRIORITY with knowledge base and other sources.
+`;
+  }
+
+  let academicPdfsSection = '';
+  if (hasAcademicPdfs) {
+    academicPdfsSection = `
+📄 ACADEMIC PDF INFORMATION (EQUAL PRIORITY - USE EXACTLY AS PROVIDED):
+${data.academicPdfs.map((pdf: any) => ({
+  title: pdf.title || 'Untitled',
+  description: pdf.description || 'No description',
+  semester: pdf.semester || 'Not specified',
+  subject: pdf.subject || 'Not specified',
+  category: pdf.category || 'Not specified',
+  fileUrl: pdf.fileUrl || 'Not available',
+})).map((pdf: any, idx: number) => `PDF ${idx + 1}: ${JSON.stringify(pdf, null, 2)}`).join('\n\n')}
+
+CRITICAL: Use all academic PDF information EXACTLY as shown. This source has EQUAL PRIORITY with knowledge base and other sources.
+`;
+  }
+
   // Detect if this is a simple greeting
   const isGreeting = intent === 'GREETING';
-  const hasData = hasKnowledge || hasStaff || hasFees || hasRoom || hasClassTimetable || hasExamTimetable;
+  const hasData = hasKnowledge || hasStaff || hasFees || hasRoom || hasClassTimetable || hasExamTimetable || hasContacts || hasAcademicPdfs;
 
   const systemPrompt = `
 You are a friendly and helpful campus assistant chatbot for Providence College of Engineering (PCE).
@@ -169,10 +212,10 @@ ${isGreeting ? `
 **FOR ACTUAL QUESTIONS:**
 
 1. DATA SOURCE PRIORITY - ALL SOURCES ARE EQUAL:
-   - ALL data sources have EQUAL PRIORITY: Knowledge Base, Staff, Fees, Rooms, Class Timetables, Exam Timetables
+   - ALL data sources have EQUAL PRIORITY: Knowledge Base, Staff, Fees, Rooms, Class Timetables, Exam Timetables, Contacts, Academic PDFs
    - Use the MOST RELEVANT source(s) that answer the user's question
    - If multiple sources have relevant information, combine them intelligently
-   - Knowledge base, staff, fees, rooms, class timetables, and exam timetables all have EQUAL importance
+   - Knowledge base, staff, fees, rooms, class timetables, exam timetables, contacts, and academic PDFs all have EQUAL importance
    - Choose the source(s) that best answer the question, regardless of source type
    - When any source answers the question, use it EXACTLY and explain it clearly
 
@@ -229,6 +272,8 @@ ${isGreeting ? `
    - Rooms: Use ALL room information EXACTLY as stored in database
    - Class Timetables: Use ALL timetable information EXACTLY as stored in database
    - Exam Timetables: Use ALL exam information EXACTLY as stored in database
+   - Contacts: Use ALL contact information EXACTLY as stored in database
+   - Academic PDFs: Use ALL academic PDF information EXACTLY as stored in database
    - ALL sources have EQUAL priority - use the most relevant one(s) for the question
    - Don't modify, summarize, or paraphrase any data from any source
    - Use names, titles, and all details exactly as written/stored
@@ -247,10 +292,12 @@ ${isGreeting ? `
    - EE = Electrical Engineering
    - ECE = Electronics and Communication Engineering
 
-6. WHEN INFORMATION IS MISSING - BE BRIEF:
+6. WHEN INFORMATION IS MISSING - BE HELPFUL:
    - If you have partial information, provide what you can - briefly
-   - If you don't know, just say "I don't have that information. Please contact the administration office."
-   - Keep it to one sentence
+   - If you have knowledge base content that's related (even if not exact), use it to provide helpful context
+   - Only say "I don't have that information" if you truly have NO relevant information from ANY source
+   - If knowledge base has related information, use it to provide a helpful answer
+   - Keep responses brief but helpful
 
 7. TONE AND PERSONALITY - BE FRIENDLY AND DIRECT:
    - Be warm and friendly - like a helpful friend
@@ -310,7 +357,11 @@ ${classTimetableSection}
 
 ${examTimetableSection}
 
-${!hasKnowledge && !hasStaff && !hasFees && !hasRoom && !hasClassTimetable && !hasExamTimetable ? 'No specific data found in database. Respond naturally and suggest contacting the office for specific details.' : ''}
+${contactsSection}
+
+${academicPdfsSection}
+
+${!hasKnowledge && !hasStaff && !hasFees && !hasRoom && !hasClassTimetable && !hasExamTimetable && !hasContacts && !hasAcademicPdfs ? 'No specific data found in database. However, you can still provide helpful general information about PCE or suggest contacting the administration office for specific details.' : ''}
 
 INSTRUCTIONS - ANSWER DIRECTLY AND CONCISELY:
 - ${languageInstruction}

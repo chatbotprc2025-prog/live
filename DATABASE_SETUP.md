@@ -58,8 +58,8 @@
    ```
 
 4. **Login credentials:**
-   - Email: `admin@pce.edu`
-   - Password: `admin123`
+   - Email: `chatbot.prc2025@gmail.com`
+   - Password: `chat@2025`
 
 ## Troubleshooting
 

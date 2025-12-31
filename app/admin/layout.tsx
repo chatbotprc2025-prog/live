@@ -58,14 +58,15 @@ export default function AdminLayout({
 
   const navItems = [
     { href: '/admin', icon: 'dashboard', label: 'Dashboard' },
-     { href: '/admin/staff', icon: 'people', label: 'Staff' },
+    { href: '/admin/staff', icon: 'people', label: 'Staff' },
     { href: '/admin/fees', icon: 'receipt_long', label: 'Fees' },
     { href: '/admin/rooms', icon: 'meeting_room', label: 'Rooms' },
+    { href: '/admin/contacts', icon: 'contacts', label: 'Contacts' },
     { href: '/admin/knowledge', icon: 'auto_stories', label: 'Knowledge Base' },
     { href: '/admin/academics', icon: 'school', label: 'Academics' },
     { href: '/admin/logs', icon: 'description', label: 'Audit Logs' },
-      { href: '/admin/class-timetable', icon: 'schedule', label: 'Class Timetable' },
-      { href: '/admin/exam-timetable', icon: 'event', label: 'Exam Timetable' },
+    { href: '/admin/class-timetable', icon: 'schedule', label: 'Class Timetable' },
+    { href: '/admin/exam-timetable', icon: 'event', label: 'Exam Timetable' },
   ];
 
   return (
@@ -147,30 +148,6 @@ export default function AdminLayout({
           >
             <span className="material-symbols-outlined text-xl" style={{ color: pathname === '/admin/client-users' ? '#667eea' : 'inherit' }}>person_add</span>
             <span className="font-semibold" style={{ color: pathname === '/admin/client-users' ? '#667eea' : 'inherit' }}>Registered Clients</span>
-          </Link>
-          <Link
-            href="/admin/rooms"
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover-lift ${
-              pathname === '/admin/rooms'
-                ? 'neu-card-inset'
-                : 'hover:bg-white/20'
-            }`}
-            style={pathname === '/admin/rooms' ? { background: 'rgba(102, 126, 234, 0.15)', boxShadow: 'inset 4px 4px 8px rgba(163, 177, 198, 0.2), inset -4px -4px 8px rgba(255, 255, 255, 0.8)' } : {}}
-          >
-            <span className="material-symbols-outlined text-xl" style={{ color: pathname === '/admin/rooms' ? '#667eea' : 'inherit' }}>meeting_room</span>
-            <span className="font-semibold" style={{ color: pathname === '/admin/rooms' ? '#667eea' : 'inherit' }}>Rooms</span>
-          </Link>
-          <Link
-            href="/admin/roles"
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover-lift ${
-              pathname === '/admin/roles'
-                ? 'neu-card-inset'
-                : 'hover:bg-white/20'
-            }`}
-            style={pathname === '/admin/roles' ? { background: 'rgba(102, 126, 234, 0.15)', boxShadow: 'inset 4px 4px 8px rgba(163, 177, 198, 0.2), inset -4px -4px 8px rgba(255, 255, 255, 0.8)' } : {}}
-          >
-            <span className="material-symbols-outlined text-xl" style={{ color: pathname === '/admin/roles' ? '#667eea' : 'inherit' }}>admin_panel_settings</span>
-            <span className="font-semibold" style={{ color: pathname === '/admin/roles' ? '#667eea' : 'inherit' }}>Roles</span>
           </Link>
           <Link
             href="/admin/settings"

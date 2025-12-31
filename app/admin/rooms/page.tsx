@@ -10,6 +10,7 @@ interface Room {
   textDirections?: string;
   latitude?: number;
   longitude?: number;
+  imageUrl?: string;
 }
 
 export default function RoomManagementPage() {
@@ -18,6 +19,8 @@ export default function RoomManagementPage() {
   const [selectedBuilding, setSelectedBuilding] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     roomCode: '',
     buildingName: '',
@@ -25,6 +28,7 @@ export default function RoomManagementPage() {
     textDirections: '',
     latitude: '',
     longitude: '',
+    imageUrl: '',
   });
 
   useEffect(() => {
@@ -52,31 +56,57 @@ export default function RoomManagementPage() {
         : '/api/admin/rooms';
       const method = editingRoom ? 'PUT' : 'POST';
       
+      // Parse latitude and longitude, handling empty strings
+      const lat = formData.latitude?.trim() ? parseFloat(formData.latitude) : null;
+      const lng = formData.longitude?.trim() ? parseFloat(formData.longitude) : null;
+      
+      // Validate numeric values
+      if (formData.latitude?.trim() && (isNaN(lat!) || lat! < -90 || lat! > 90)) {
+        alert('Latitude must be a number between -90 and 90');
+        return;
+      }
+      if (formData.longitude?.trim() && (isNaN(lng!) || lng! < -180 || lng! > 180)) {
+        alert('Longitude must be a number between -180 and 180');
+        return;
+      }
+      
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-          longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+          roomCode: formData.roomCode.trim(),
+          buildingName: formData.buildingName.trim(),
+          floor: formData.floor.trim(),
+          textDirections: formData.textDirections.trim() || null,
+          latitude: lat,
+          longitude: lng,
+          imageUrl: formData.imageUrl?.trim() || null,
         }),
       });
 
-      if (res.ok) {
-        setIsModalOpen(false);
-        setEditingRoom(null);
-        setFormData({
-          roomCode: '',
-          buildingName: '',
-          floor: '',
-          textDirections: '',
-          latitude: '',
-          longitude: '',
-        });
-        loadRooms();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to save room' }));
+        throw new Error(errorData.error || 'Failed to save room');
       }
-    } catch (error) {
+
+      const data = await res.json();
+      setIsModalOpen(false);
+      setEditingRoom(null);
+      setFormData({
+        roomCode: '',
+        buildingName: '',
+        floor: '',
+        textDirections: '',
+        latitude: '',
+        longitude: '',
+        imageUrl: '',
+      });
+      setImagePreview(null);
+      loadRooms();
+      alert(editingRoom ? 'Room updated successfully!' : 'Room created successfully!');
+    } catch (error: any) {
       console.error('Failed to save room:', error);
+      alert(error.message || 'Failed to save room. Please try again.');
     }
   };
 
@@ -89,8 +119,56 @@ export default function RoomManagementPage() {
       textDirections: room.textDirections || '',
       latitude: room.latitude?.toString() || '',
       longitude: room.longitude?.toString() || '',
+      imageUrl: room.imageUrl || '',
     });
+    setImagePreview(room.imageUrl || null);
     setIsModalOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/rooms/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to upload image');
+      }
+
+      const data = await res.json();
+      setFormData(prev => ({ ...prev, imageUrl: data.url }));
+      setImagePreview(data.url);
+    } catch (error: any) {
+      alert(error.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, imageUrl: '' }));
+    setImagePreview(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -134,7 +212,9 @@ export default function RoomManagementPage() {
               textDirections: '',
               latitude: '',
               longitude: '',
+              imageUrl: '',
             });
+            setImagePreview(null);
             setIsModalOpen(true);
           }}
           className="btn-primary flex items-center gap-2 px-5 py-3 rounded-2xl text-white font-semibold relative overflow-hidden group hover-lift"
@@ -311,6 +391,50 @@ export default function RoomManagementPage() {
                     className="modern-input w-full rounded-2xl py-3 px-4 text-charcoal"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-charcoal mb-2">
+                  Room Image <span className="text-gray-500 text-xs font-normal">(Optional)</span>
+                </label>
+                {imagePreview ? (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="Room preview"
+                      className="w-full h-48 object-cover rounded-2xl mb-2"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                      id="room-image-upload"
+                    />
+                    <label
+                      htmlFor="room-image-upload"
+                      className="cursor-pointer flex flex-col items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-4xl text-gray-400">
+                        {uploadingImage ? 'hourglass_empty' : 'image'}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {uploadingImage ? 'Uploading...' : 'Click to upload room image'}
+                      </span>
+                      <span className="text-xs text-gray-400">Max 5MB (JPEG, PNG, GIF, WebP)</span>
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="flex gap-4 pt-2">
                 <button

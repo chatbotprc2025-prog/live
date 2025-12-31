@@ -85,6 +85,7 @@ export default function ChatPage() {
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [clientUser, setClientUser] = useState<{ email: string; userType: string } | null>(null);
+  const [currentView, setCurrentView] = useState<'chat' | 'academics' | 'timetable' | 'fees' | 'campus' | 'contacts'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -1280,14 +1281,264 @@ export default function ChatPage() {
     }
   };
 
+  const [academicsSearchFilters, setAcademicsSearchFilters] = useState({
+    semester: '',
+    subject: '',
+    category: '',
+    keyword: '',
+  });
+  const [academicsPdfs, setAcademicsPdfs] = useState<any[]>([]);
+  const [academicsLoading, setAcademicsLoading] = useState(false);
+  const [academicsHasSearched, setAcademicsHasSearched] = useState(false);
+
+  // Timetable state
+  const [timetableType, setTimetableType] = useState<'class' | 'exam'>('class');
+  const [timetableFilters, setTimetableFilters] = useState({
+    programName: '',
+    semester: '',
+    dayOfWeek: '',
+    examName: '',
+  });
+  const [classTimetable, setClassTimetable] = useState<any[]>([]);
+  const [examTimetable, setExamTimetable] = useState<any[]>([]);
+  const [timetableLoading, setTimetableLoading] = useState(false);
+  const [timetableHasSearched, setTimetableHasSearched] = useState(false);
+
+  // Fees state
+  const [feesFilters, setFeesFilters] = useState({
+    program: '',
+    year: '',
+    semester: '',
+  });
+  const [fees, setFees] = useState<any[]>([]);
+  const [feesLoading, setFeesLoading] = useState(false);
+  const [feesHasSearched, setFeesHasSearched] = useState(false);
+
+  // Campus/Rooms state
+  const [campusFilters, setCampusFilters] = useState({
+    roomCode: '',
+    building: '',
+  });
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [campusLoading, setCampusLoading] = useState(false);
+  const [campusHasSearched, setCampusHasSearched] = useState(false);
+
+  // Contacts state
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsSearchQuery, setContactsSearchQuery] = useState<string>('');
+  const [contactsHasSearched, setContactsHasSearched] = useState(false);
+
   const quickLinks = [
-    { icon: 'school', label: 'Academics' },
-    { icon: 'calendar_month', label: 'Timetable' },
-    { icon: 'receipt_long', label: 'Fees' },
-    { icon: 'local_library', label: 'Library' },
-    { icon: 'map', label: 'Campus Map' },
-    { icon: 'contacts', label: 'Contacts' },
+    { icon: 'school', label: 'Academics', href: '/academics', view: 'academics' as const },
+    { icon: 'calendar_month', label: 'Timetable', href: '/timetable', view: 'timetable' as const },
+    { icon: 'receipt_long', label: 'Fees', href: '/fees', view: 'fees' as const },
+    { icon: 'map', label: 'Campus Map', href: '/map', view: 'campus' as const },
+    { icon: 'contacts', label: 'Contacts', href: '/contacts', view: 'contacts' as const },
   ];
+
+  const handleAcademicsSearch = async () => {
+    if (!academicsSearchFilters.semester && !academicsSearchFilters.subject && !academicsSearchFilters.category && !academicsSearchFilters.keyword) {
+      alert('Please provide at least one search criteria');
+      return;
+    }
+
+    setAcademicsLoading(true);
+    setAcademicsHasSearched(true);
+    try {
+      const params = new URLSearchParams();
+      if (academicsSearchFilters.semester) params.append('semester', academicsSearchFilters.semester);
+      if (academicsSearchFilters.subject) params.append('subject', academicsSearchFilters.subject);
+      if (academicsSearchFilters.category) params.append('category', academicsSearchFilters.category);
+      if (academicsSearchFilters.keyword) params.append('keyword', academicsSearchFilters.keyword);
+
+      const res = await fetch(`/api/academics/search?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error('Failed to search PDFs');
+      }
+
+      const data = await res.json();
+      setAcademicsPdfs(data || []);
+    } catch (error) {
+      console.error('Search error:', error);
+      alert('Failed to search PDFs');
+      setAcademicsPdfs([]);
+    } finally {
+      setAcademicsLoading(false);
+    }
+  };
+
+  const handleAcademicsReset = () => {
+    setAcademicsSearchFilters({
+      semester: '',
+      subject: '',
+      category: '',
+      keyword: '',
+    });
+    setAcademicsPdfs([]);
+    setAcademicsHasSearched(false);
+  };
+
+  // Timetable handlers
+  const handleTimetableSearch = async () => {
+    setTimetableLoading(true);
+    setTimetableHasSearched(true);
+    try {
+      if (timetableType === 'class') {
+        const params = new URLSearchParams();
+        if (timetableFilters.programName) params.append('programName', timetableFilters.programName);
+        if (timetableFilters.semester) params.append('semester', timetableFilters.semester);
+        if (timetableFilters.dayOfWeek) params.append('dayOfWeek', timetableFilters.dayOfWeek);
+
+        const res = await fetch(`/api/timetable/class?${params.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch class timetable');
+        const data = await res.json();
+        setClassTimetable(data || []);
+      } else {
+        const params = new URLSearchParams();
+        if (timetableFilters.programName) params.append('programName', timetableFilters.programName);
+        if (timetableFilters.semester) params.append('semester', timetableFilters.semester);
+        if (timetableFilters.examName) params.append('examName', timetableFilters.examName);
+
+        const res = await fetch(`/api/timetable/exam?${params.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch exam timetable');
+        const data = await res.json();
+        setExamTimetable(data || []);
+      }
+    } catch (error) {
+      console.error('Timetable search error:', error);
+      alert('Failed to fetch timetable');
+      setClassTimetable([]);
+      setExamTimetable([]);
+    } finally {
+      setTimetableLoading(false);
+    }
+  };
+
+  const handleTimetableReset = () => {
+    setTimetableFilters({
+      programName: '',
+      semester: '',
+      dayOfWeek: '',
+      examName: '',
+    });
+    setClassTimetable([]);
+    setExamTimetable([]);
+    setTimetableHasSearched(false);
+  };
+
+  // Fees handlers
+  const handleFeesSearch = async () => {
+    setFeesLoading(true);
+    setFeesHasSearched(true);
+    try {
+      const params = new URLSearchParams();
+      if (feesFilters.program) params.append('program', feesFilters.program);
+      if (feesFilters.year) params.append('year', feesFilters.year);
+      if (feesFilters.semester) params.append('semester', feesFilters.semester);
+
+      const res = await fetch(`/api/fees?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch fees');
+      const data = await res.json();
+      setFees(data || []);
+    } catch (error) {
+      console.error('Fees search error:', error);
+      alert('Failed to fetch fees');
+      setFees([]);
+    } finally {
+      setFeesLoading(false);
+    }
+  };
+
+  const handleFeesReset = () => {
+    setFeesFilters({
+      program: '',
+      year: '',
+      semester: '',
+    });
+    setFees([]);
+    setFeesHasSearched(false);
+  };
+
+  // Campus/Rooms handlers
+  const handleCampusSearch = async () => {
+    setCampusLoading(true);
+    setCampusHasSearched(true);
+    try {
+      const params = new URLSearchParams();
+      if (campusFilters.roomCode) params.append('roomCode', campusFilters.roomCode);
+      if (campusFilters.building) params.append('building', campusFilters.building);
+
+      const res = await fetch(`/api/rooms?${params.toString()}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to fetch rooms' }));
+        throw new Error(errorData.error || 'Failed to fetch rooms');
+      }
+      const data = await res.json();
+      setRooms(data || []);
+    } catch (error: any) {
+      console.error('Campus search error:', error);
+      alert(error.message || 'Failed to fetch rooms');
+      setRooms([]);
+    } finally {
+      setCampusLoading(false);
+    }
+  };
+
+  const handleCampusReset = () => {
+    setCampusFilters({
+      roomCode: '',
+      building: '',
+    });
+    setRooms([]);
+    setCampusHasSearched(false);
+  };
+
+  // Contacts handlers
+  const handleContactsSearch = async () => {
+    if (!contactsSearchQuery.trim()) {
+      alert('Please enter a search query');
+      return;
+    }
+
+    setContactsLoading(true);
+    setContactsHasSearched(true);
+    try {
+      // Fetch all contacts and filter client-side for search
+      const res = await fetch('/api/contacts');
+      if (!res.ok) {
+        throw new Error('Failed to fetch contacts');
+      }
+      const allContacts = await res.json();
+      
+      // Filter contacts by search query (name, email, phone, department, designation, category)
+      const query = contactsSearchQuery.toLowerCase().trim();
+      const filtered = allContacts.filter((contact: any) => {
+        return (
+          contact.name?.toLowerCase().includes(query) ||
+          contact.email?.toLowerCase().includes(query) ||
+          contact.phone?.toLowerCase().includes(query) ||
+          contact.department?.toLowerCase().includes(query) ||
+          contact.designation?.toLowerCase().includes(query) ||
+          contact.category?.toLowerCase().includes(query)
+        );
+      });
+      
+      setContacts(filtered || []);
+    } catch (error) {
+      console.error('Failed to search contacts:', error);
+      alert('Failed to search contacts');
+      setContacts([]);
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const handleContactsReset = () => {
+    setContactsSearchQuery('');
+    setContacts([]);
+    setContactsHasSearched(false);
+  };
 
   if (!isAuthorized) {
     return (
@@ -1397,16 +1648,34 @@ export default function ChatPage() {
             </h3>
             <ul className="flex flex-col gap-1">
               {quickLinks.map((link) => (
-                <li
-                  key={link.label}
-                  className="flex h-12 cursor-pointer items-center gap-3 rounded-xl px-3 transition-all hover-lift hover:bg-white/20"
-                >
-                  <span className="material-symbols-outlined text-charcoal/80 text-[22px]">
-                    {link.icon}
-                  </span>
-                  <p className="text-charcoal text-sm font-medium leading-tight truncate">
-                    {link.label}
-                  </p>
+                <li key={link.label}>
+                  {(link.view === 'academics' || link.view === 'timetable' || link.view === 'fees' || link.view === 'campus' || link.view === 'contacts') ? (
+                    <button
+                      onClick={() => setCurrentView(link.view)}
+                      className={`flex h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 transition-all hover-lift hover:bg-white/20 ${
+                        currentView === link.view ? 'bg-white/30' : ''
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-charcoal/80 text-[22px]">
+                        {link.icon}
+                      </span>
+                      <p className="text-charcoal text-sm font-medium leading-tight truncate">
+                        {link.label}
+                      </p>
+                    </button>
+                  ) : (
+                    <Link
+                      href={(link as any).href}
+                      className="flex h-12 cursor-pointer items-center gap-3 rounded-xl px-3 transition-all hover-lift hover:bg-white/20"
+                    >
+                      <span className="material-symbols-outlined text-charcoal/80 text-[22px]">
+                        {(link as any).icon}
+                      </span>
+                      <p className="text-charcoal text-sm font-medium leading-tight truncate">
+                        {(link as any).label}
+                      </p>
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -1439,9 +1708,23 @@ export default function ChatPage() {
             <span className="material-symbols-outlined text-2xl">menu</span>
           </button>
           <h1 className="text-charcoal text-lg font-bold leading-tight gradient-text" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {activeConversation?.title || 'Campus Assistant'}
+            {currentView === 'academics' ? 'Academics' : 
+             currentView === 'timetable' ? 'Timetable' :
+             currentView === 'fees' ? 'Fees' :
+             currentView === 'campus' ? 'Campus Map' :
+             (activeConversation?.title || 'Campus Assistant')}
           </h1>
-          <div className="w-12" />
+          {(currentView === 'academics' || currentView === 'timetable' || currentView === 'fees' || currentView === 'campus' || currentView === 'contacts') && (
+            <button
+              onClick={() => setCurrentView('chat')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-charcoal hover-lift transition-all"
+              style={{ background: 'rgba(255, 255, 255, 0.3)', backdropFilter: 'blur(10px)' }}
+            >
+              <span className="material-symbols-outlined text-lg">arrow_back</span>
+              Back to Chat
+            </button>
+          )}
+          {currentView === 'chat' && <div className="w-12" />}
         </header>
 
         <main
@@ -1453,6 +1736,656 @@ export default function ChatPage() {
             WebkitOverflowScrolling: 'touch'
           }}
          >
+          {currentView === 'academics' ? (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal mb-2">Search Academic Materials</h2>
+                <p className="text-gray-600">Find PDFs by semester, subject, category, or keyword</p>
+              </div>
+
+              {/* Search Section */}
+              <div className="glass-card rounded-2xl p-6" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                <h3 className="text-xl font-bold text-charcoal mb-4">What are you looking for?</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Keyword Search</label>
+                    <input
+                      type="text"
+                      value={academicsSearchFilters.keyword}
+                      onChange={(e) => setAcademicsSearchFilters({ ...academicsSearchFilters, keyword: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="Search by title, description, or subject..."
+                      onKeyPress={(e) => e.key === 'Enter' && handleAcademicsSearch()}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal mb-2">Semester</label>
+                      <input
+                        type="text"
+                        value={academicsSearchFilters.semester}
+                        onChange={(e) => setAcademicsSearchFilters({ ...academicsSearchFilters, semester: e.target.value })}
+                        className="modern-input w-full rounded-xl py-3 px-4"
+                        placeholder="e.g., Semester 1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal mb-2">Subject</label>
+                      <input
+                        type="text"
+                        value={academicsSearchFilters.subject}
+                        onChange={(e) => setAcademicsSearchFilters({ ...academicsSearchFilters, subject: e.target.value })}
+                        className="modern-input w-full rounded-xl py-3 px-4"
+                        placeholder="e.g., Computer Science"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal mb-2">Category</label>
+                      <select
+                        value={academicsSearchFilters.category}
+                        onChange={(e) => setAcademicsSearchFilters({ ...academicsSearchFilters, category: e.target.value })}
+                        className="modern-input w-full rounded-xl py-3 px-4"
+                      >
+                        <option value="">All Categories</option>
+                        <option value="Notes">Notes</option>
+                        <option value="Syllabus">Syllabus</option>
+                        <option value="Question Paper">Question Paper</option>
+                        <option value="Study Material">Study Material</option>
+                        <option value="Others">Others</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleAcademicsSearch}
+                      disabled={academicsLoading}
+                      className="px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                    >
+                      {academicsLoading ? 'Searching...' : 'Search'}
+                    </button>
+                    {(academicsHasSearched || academicsPdfs.length > 0) && (
+                      <button
+                        onClick={handleAcademicsReset}
+                        className="px-6 py-3 rounded-xl text-charcoal font-semibold hover-lift transition-all"
+                        style={{ background: 'rgba(255, 255, 255, 0.5)' }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Results Section */}
+              {academicsHasSearched && (
+                <div className="glass-card rounded-2xl overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  {academicsLoading ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">Searching...</p>
+                    </div>
+                  ) : academicsPdfs.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">No results found. Try adjusting your search criteria.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Title</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Semester</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Subject</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Category</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Description</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {academicsPdfs.map((pdf) => (
+                            <tr key={pdf.id} className="border-b border-gray-200 hover:bg-gray-50">
+                              <td className="px-6 py-4 text-sm font-medium">{pdf.title}</td>
+                              <td className="px-6 py-4 text-sm">{pdf.semester || '-'}</td>
+                              <td className="px-6 py-4 text-sm">{pdf.subject || '-'}</td>
+                              <td className="px-6 py-4 text-sm">{pdf.category || '-'}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
+                                {pdf.description || '-'}
+                              </td>
+                              <td className="px-6 py-4 text-sm">
+                                <a
+                                  href={pdf.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  View PDF
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Initial State - No Search Yet */}
+              {!academicsHasSearched && (
+                <div className="glass-card rounded-2xl p-12 text-center" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  <p className="text-gray-600">Use the search filters above to find academic materials.</p>
+                </div>
+              )}
+            </div>
+          ) : currentView === 'timetable' ? (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal mb-2">Timetable</h2>
+                <p className="text-gray-600">View class and exam timetables</p>
+              </div>
+
+              <div className="glass-card rounded-2xl p-6" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                <div className="mb-4">
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => {
+                        setTimetableType('class');
+                        setTimetableHasSearched(false);
+                        setClassTimetable([]);
+                        setExamTimetable([]);
+                      }}
+                      className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                        timetableType === 'class'
+                          ? 'text-white'
+                          : 'text-charcoal bg-white/30'
+                      }`}
+                      style={timetableType === 'class' ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' } : {}}
+                    >
+                      Class Timetable
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTimetableType('exam');
+                        setTimetableHasSearched(false);
+                        setClassTimetable([]);
+                        setExamTimetable([]);
+                      }}
+                      className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                        timetableType === 'exam'
+                          ? 'text-white'
+                          : 'text-charcoal bg-white/30'
+                      }`}
+                      style={timetableType === 'exam' ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' } : {}}
+                    >
+                      Exam Timetable
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal mb-2">Program Name</label>
+                      <input
+                        type="text"
+                        value={timetableFilters.programName}
+                        onChange={(e) => setTimetableFilters({ ...timetableFilters, programName: e.target.value })}
+                        className="modern-input w-full rounded-xl py-3 px-4"
+                        placeholder="e.g., Computer Science"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal mb-2">Semester</label>
+                      <input
+                        type="text"
+                        value={timetableFilters.semester}
+                        onChange={(e) => setTimetableFilters({ ...timetableFilters, semester: e.target.value })}
+                        className="modern-input w-full rounded-xl py-3 px-4"
+                        placeholder="e.g., Semester 1"
+                      />
+                    </div>
+                    {timetableType === 'class' ? (
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">Day of Week</label>
+                        <select
+                          value={timetableFilters.dayOfWeek}
+                          onChange={(e) => setTimetableFilters({ ...timetableFilters, dayOfWeek: e.target.value })}
+                          className="modern-input w-full rounded-xl py-3 px-4"
+                        >
+                          <option value="">All Days</option>
+                          <option value="Monday">Monday</option>
+                          <option value="Tuesday">Tuesday</option>
+                          <option value="Wednesday">Wednesday</option>
+                          <option value="Thursday">Thursday</option>
+                          <option value="Friday">Friday</option>
+                          <option value="Saturday">Saturday</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">Exam Name</label>
+                        <input
+                          type="text"
+                          value={timetableFilters.examName}
+                          onChange={(e) => setTimetableFilters({ ...timetableFilters, examName: e.target.value })}
+                          className="modern-input w-full rounded-xl py-3 px-4"
+                          placeholder="e.g., Mid-term"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3 mt-4">
+                    <button
+                      onClick={handleTimetableSearch}
+                      disabled={timetableLoading}
+                      className="px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                    >
+                      {timetableLoading ? 'Searching...' : 'Search'}
+                    </button>
+                    {timetableHasSearched && (
+                      <button
+                        onClick={handleTimetableReset}
+                        className="px-6 py-3 rounded-xl text-charcoal font-semibold hover-lift transition-all"
+                        style={{ background: 'rgba(255, 255, 255, 0.5)' }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {timetableHasSearched && (
+                <div className="glass-card rounded-2xl overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  {timetableLoading ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">Loading...</p>
+                    </div>
+                  ) : (timetableType === 'class' ? classTimetable : examTimetable).length === 0 ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">No results found. Try adjusting your search criteria.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            {timetableType === 'class' ? (
+                              <>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Program</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Semester</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Day</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Period</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Subject</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Faculty</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Room</th>
+                              </>
+                            ) : (
+                              <>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Program</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Semester</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Exam Name</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Subject</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Date</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Time</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold">Room</th>
+                              </>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(timetableType === 'class' ? classTimetable : examTimetable).map((item: any) => (
+                            <tr key={item.id} className="border-b border-gray-200 hover:bg-gray-50">
+                              {timetableType === 'class' ? (
+                                <>
+                                  <td className="px-6 py-4 text-sm">{item.programName}</td>
+                                  <td className="px-6 py-4 text-sm">{item.semester}</td>
+                                  <td className="px-6 py-4 text-sm">{item.dayOfWeek}</td>
+                                  <td className="px-6 py-4 text-sm">{item.period}</td>
+                                  <td className="px-6 py-4 text-sm">{item.subject}</td>
+                                  <td className="px-6 py-4 text-sm">{item.faculty || '-'}</td>
+                                  <td className="px-6 py-4 text-sm">{item.room || '-'}</td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="px-6 py-4 text-sm">{item.programName}</td>
+                                  <td className="px-6 py-4 text-sm">{item.semester}</td>
+                                  <td className="px-6 py-4 text-sm">{item.examName}</td>
+                                  <td className="px-6 py-4 text-sm">{item.subject}</td>
+                                  <td className="px-6 py-4 text-sm">{new Date(item.examDate).toLocaleDateString()}</td>
+                                  <td className="px-6 py-4 text-sm">{item.startTime} - {item.endTime}</td>
+                                  <td className="px-6 py-4 text-sm">{item.room || '-'}</td>
+                                </>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!timetableHasSearched && (
+                <div className="glass-card rounded-2xl p-12 text-center" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  <p className="text-gray-600">Use the search filters above to find timetable information.</p>
+                </div>
+              )}
+            </div>
+          ) : currentView === 'fees' ? (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal mb-2">Fees Information</h2>
+                <p className="text-gray-600">View fee structure by program and year</p>
+              </div>
+
+              <div className="glass-card rounded-2xl p-6" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Program</label>
+                    <input
+                      type="text"
+                      value={feesFilters.program}
+                      onChange={(e) => setFeesFilters({ ...feesFilters, program: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="e.g., Computer Science"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Academic Year</label>
+                    <input
+                      type="text"
+                      value={feesFilters.year}
+                      onChange={(e) => setFeesFilters({ ...feesFilters, year: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="e.g., 2024-25"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Year/Semester</label>
+                    <input
+                      type="text"
+                      value={feesFilters.semester}
+                      onChange={(e) => setFeesFilters({ ...feesFilters, semester: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="e.g., Year 1 or Semester 1"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={handleFeesSearch}
+                    disabled={feesLoading}
+                    className="px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                  >
+                    {feesLoading ? 'Searching...' : 'Search'}
+                  </button>
+                  {feesHasSearched && (
+                    <button
+                      onClick={handleFeesReset}
+                      className="px-6 py-3 rounded-xl text-charcoal font-semibold hover-lift transition-all"
+                      style={{ background: 'rgba(255, 255, 255, 0.5)' }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {feesHasSearched && (
+                <div className="glass-card rounded-2xl overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  {feesLoading ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">Loading...</p>
+                    </div>
+                  ) : fees.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">No results found. Try adjusting your search criteria.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Program</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Academic Year</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Year/Semester</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Category</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Amount</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold">Currency</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fees.map((fee: any) => (
+                            <tr key={fee.id} className="border-b border-gray-200 hover:bg-gray-50">
+                              <td className="px-6 py-4 text-sm">{fee.programName}</td>
+                              <td className="px-6 py-4 text-sm">{fee.academicYear}</td>
+                              <td className="px-6 py-4 text-sm">{fee.yearOrSemester}</td>
+                              <td className="px-6 py-4 text-sm">{fee.category}</td>
+                              <td className="px-6 py-4 text-sm font-semibold">{fee.amount} {fee.currency}</td>
+                              <td className="px-6 py-4 text-sm">{fee.currency}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!feesHasSearched && (
+                <div className="glass-card rounded-2xl p-12 text-center" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  <p className="text-gray-600">Use the search filters above to find fee information.</p>
+                </div>
+              )}
+            </div>
+          ) : currentView === 'campus' ? (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal mb-2">Campus Map</h2>
+                <p className="text-gray-600">Find rooms and buildings on campus</p>
+              </div>
+
+              <div className="glass-card rounded-2xl p-6" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Room Code</label>
+                    <input
+                      type="text"
+                      value={campusFilters.roomCode}
+                      onChange={(e) => setCampusFilters({ ...campusFilters, roomCode: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="e.g., A101"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal mb-2">Building</label>
+                    <input
+                      type="text"
+                      value={campusFilters.building}
+                      onChange={(e) => setCampusFilters({ ...campusFilters, building: e.target.value })}
+                      className="modern-input w-full rounded-xl py-3 px-4"
+                      placeholder="e.g., Main Building"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={handleCampusSearch}
+                    disabled={campusLoading}
+                    className="px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                  >
+                    {campusLoading ? 'Searching...' : 'Search'}
+                  </button>
+                  {campusHasSearched && (
+                    <button
+                      onClick={handleCampusReset}
+                      className="px-6 py-3 rounded-xl text-charcoal font-semibold hover-lift transition-all"
+                      style={{ background: 'rgba(255, 255, 255, 0.5)' }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {campusHasSearched && (
+                <div className="glass-card rounded-2xl overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  {campusLoading ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">Loading...</p>
+                    </div>
+                  ) : rooms.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">No results found. Try adjusting your search criteria.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+                      {rooms.map((room: any) => (
+                        <div key={room.id} className="glass-card rounded-2xl p-4 hover-lift transition-all" style={{ background: 'rgba(255, 255, 255, 0.3)', backdropFilter: 'blur(10px)' }}>
+                          {room.imageUrl && (
+                            <img
+                              src={room.imageUrl}
+                              alt={room.roomCode}
+                              className="w-full h-48 object-cover rounded-xl mb-3"
+                            />
+                          )}
+                          <h3 className="text-lg font-bold text-charcoal mb-2">{room.roomCode}</h3>
+                          <p className="text-sm text-gray-600 mb-1"><span className="font-semibold">Building:</span> {room.buildingName}</p>
+                          {room.textDirections && (
+                            <p className="text-sm text-gray-600 mt-2">{room.textDirections}</p>
+                          )}
+                          {room.latitude && room.longitude && (
+                            <a
+                              href={`https://www.google.com/maps?q=${room.latitude},${room.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              <span className="material-symbols-outlined text-base">location_on</span>
+                              View on Map
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!campusHasSearched && (
+                <div className="glass-card rounded-2xl p-12 text-center" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  <p className="text-gray-600">Use the search filters above to find rooms and buildings.</p>
+                </div>
+              )}
+            </div>
+          ) : currentView === 'contacts' ? (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal mb-2">Contacts</h2>
+                <p className="text-gray-600">Search for contacts by name, email, phone, department, or category</p>
+              </div>
+
+              <div className="glass-card rounded-2xl p-6" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={contactsSearchQuery}
+                    onChange={(e) => setContactsSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleContactsSearch()}
+                    className="modern-input flex-1 rounded-xl py-3 px-4"
+                    placeholder="Search by name, email, phone, department, designation, or category..."
+                  />
+                  <button
+                    onClick={handleContactsSearch}
+                    disabled={contactsLoading}
+                    className="px-6 py-3 rounded-xl text-white font-semibold hover-lift transition-all disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                  >
+                    {contactsLoading ? 'Searching...' : 'Search'}
+                  </button>
+                  {contactsHasSearched && (
+                    <button
+                      onClick={handleContactsReset}
+                      className="px-6 py-3 rounded-xl text-charcoal font-semibold hover-lift transition-all"
+                      style={{ background: 'rgba(255, 255, 255, 0.5)' }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {contactsHasSearched && (
+                <div className="glass-card rounded-2xl overflow-hidden" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  {contactsLoading ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">Searching...</p>
+                    </div>
+                  ) : contacts.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-600">No contacts found matching your search.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+                      {contacts.map((contact: any) => (
+                        <div key={contact.id} className="glass-card rounded-2xl p-6 hover-lift transition-all" style={{ background: 'rgba(255, 255, 255, 0.3)', backdropFilter: 'blur(10px)' }}>
+                          <h3 className="text-lg font-bold text-charcoal mb-2">{contact.name}</h3>
+                          {contact.designation && (
+                            <p className="text-sm text-gray-600 font-medium mb-1">{contact.designation}</p>
+                          )}
+                          {contact.department && (
+                            <p className="text-sm text-gray-600 mb-3">{contact.department}</p>
+                          )}
+                          {contact.category && (
+                            <span className="inline-block px-3 py-1 rounded-full text-xs font-medium mb-3" style={{ background: 'rgba(102, 126, 234, 0.1)', color: '#667eea' }}>
+                              {contact.category}
+                            </span>
+                          )}
+                          <div className="space-y-2 mt-4">
+                            {contact.email && (
+                              <a
+                                href={`mailto:${contact.email}`}
+                                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                <span className="material-symbols-outlined text-base">email</span>
+                                {contact.email}
+                              </a>
+                            )}
+                            {contact.phone && (
+                              <a
+                                href={`tel:${contact.phone}`}
+                                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                <span className="material-symbols-outlined text-base">phone</span>
+                                {contact.phone}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!contactsHasSearched && (
+                <div className="glass-card rounded-2xl p-12 text-center" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)' }}>
+                  <p className="text-gray-600">Use the search above to find contacts.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
           {showPolicyBanner && (
             <div className="flex items-center justify-between rounded-2xl glass-card p-4 animate-slide-up" style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(15px)', border: '1px solid rgba(255, 255, 255, 0.3)' }}>
               <div className="flex flex-col gap-1">
@@ -1659,8 +2592,11 @@ export default function ChatPage() {
           )}
 
            <div ref={messagesEndRef} style={{ height: '1px' }} />
+            </>
+          )}
          </main>
 
+        {currentView === 'chat' && (
         <footer className="absolute bottom-0 left-0 right-0 glass-card" style={{ background: 'rgba(255, 255, 255, 0.3)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255, 255, 255, 0.18)' }}>
           <div className="flex items-center gap-3 p-4">
             <input
@@ -1726,8 +2662,8 @@ export default function ChatPage() {
             </button>
           </div>
         </footer>
+        )}
       </div>
     </div>
   );
 }
-

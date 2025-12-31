@@ -37,7 +37,7 @@ GROQ_API_KEY="your-groq-api-key"
 5. **Access the Application**
    - Student App: http://localhost:3000
    - Admin Portal: http://localhost:3000/admin/login
-   - Admin Credentials: admin@pce.edu / admin123
+   - Admin Credentials: chatbot.prc2025@gmail.com / chat@2025
 
 ## Database Setup
 
