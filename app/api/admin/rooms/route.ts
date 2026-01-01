@@ -60,23 +60,25 @@ export async function POST(request: NextRequest) {
     let lng: number | null = null;
     
     if (latitude !== null && latitude !== undefined && latitude !== '') {
-      lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
-      if (isNaN(lat) || lat < -90 || lat > 90) {
+      const parsedLat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+      if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
         return NextResponse.json(
           { error: 'Latitude must be a number between -90 and 90' },
           { status: 400 }
         );
       }
+      lat = parsedLat;
     }
     
     if (longitude !== null && longitude !== undefined && longitude !== '') {
-      lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
-      if (isNaN(lng) || lng < -180 || lng > 180) {
+      const parsedLng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+      if (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180) {
         return NextResponse.json(
           { error: 'Longitude must be a number between -180 and 180' },
           { status: 400 }
         );
       }
+      lng = parsedLng;
     }
 
     // Check if room code already exists
