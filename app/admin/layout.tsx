@@ -165,7 +165,9 @@ export default function AdminLayout({
         <div className="p-4 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.18)' }}>
           <div className="mb-3 p-3 rounded-xl glass-card" style={{ background: 'rgba(255, 255, 255, 0.2)', backdropFilter: 'blur(10px)' }}>
             <p className="text-xs text-gray-500 mb-1">Logged in as</p>
-            <p className="text-sm font-semibold text-charcoal truncate">{user?.email}</p>
+            <p className="text-sm font-semibold text-charcoal truncate" title={user?.email || ''}>
+              {user?.email || 'Loading...'}
+            </p>
           </div>
           <button
             onClick={handleLogout}
