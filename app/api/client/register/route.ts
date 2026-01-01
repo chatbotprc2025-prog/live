@@ -97,6 +97,29 @@ export async function POST(request: NextRequest) {
       stack: error.stack,
     });
     
+    // Handle database connection errors
+    if (error.message?.includes('DATABASE_URL') || error.message?.includes('database')) {
+      console.error('⚠️ Database connection error - check DATABASE_URL environment variable');
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed. Please contact support.',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      );
+    }
+    
+    // Handle Prisma connection errors
+    if (error.code === 'P1001' || error.code === 'P1017') {
+      return NextResponse.json(
+        { 
+          error: 'Database connection error. Please try again later.',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      );
+    }
+    
     // Handle specific Prisma errors
     if (error.code === 'P2002') {
       const field = error.meta?.target?.[0] || 'field';
@@ -113,7 +136,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         error: 'Failed to register user', 
-        details: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorMessage : 'Please try again or contact support',
         code: error.code || 'UNKNOWN',
         type: error.name || 'Error'
       },
