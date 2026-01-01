@@ -53,3 +53,7 @@ node_modules/
 .next/
 .env
 .env.local
+
+# Exclude all .md files except README.md
+*.md
+!README.md
