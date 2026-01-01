@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Type helper to extract the type from Prisma query result
+type AcademicPdfType = Awaited<ReturnType<typeof prisma.academicPdf.findMany>>[number];
+
 // GET - Search academic PDFs (student access)
-// Types are inferred automatically from Prisma query results
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let academicPdfs = await prisma.academicPdf.findMany({
+    let academicPdfs: AcademicPdfType[] = await prisma.academicPdf.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     });
@@ -74,9 +76,6 @@ export async function GET(request: NextRequest) {
     const lowerSemester = semester?.toLowerCase() || '';
     const lowerSubject = subject?.toLowerCase() || '';
     const lowerCategory = category?.toLowerCase() || '';
-
-    // Type helper to extract the type from Prisma query result
-    type AcademicPdfType = Awaited<ReturnType<typeof prisma.academicPdf.findMany>>[number];
 
     if (lowerKeyword || lowerSemester || lowerSubject || lowerCategory) {
       academicPdfs = academicPdfs.filter((pdf: AcademicPdfType) => {
