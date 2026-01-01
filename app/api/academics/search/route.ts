@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
 
 // GET - Search academic PDFs (student access)
 export async function GET(request: NextRequest) {
@@ -64,7 +63,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let academicPdfs: Prisma.AcademicPdfGetPayload<{}>[] = await prisma.academicPdf.findMany({
+    let academicPdfs = await prisma.academicPdf.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     });
