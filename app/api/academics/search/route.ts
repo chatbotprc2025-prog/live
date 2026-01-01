@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let academicPdfs = await prisma.academicPdf.findMany({
+    let academicPdfs: AcademicPdf[] = await prisma.academicPdf.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     });
