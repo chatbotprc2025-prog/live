@@ -257,8 +257,8 @@ export default function OnboardingPage() {
 
         {/* OTP Verification Card */}
         <div className="relative flex w-full max-w-md flex-col overflow-hidden glass-card rounded-3xl shadow-large animate-slide-up" style={{ backdropFilter: 'blur(20px)', background: 'rgba(255, 255, 255, 0.25)', border: '1px solid rgba(255, 255, 255, 0.18)' }}>
-          <div className="p-8 pb-6 text-left">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl relative overflow-hidden animate-float" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 10px 40px rgba(102, 126, 234, 0.4)' }}>
+          <div className="p-8 pb-6 text-center">
+            <div className="mb-5 mx-auto flex h-16 w-16 items-center justify-center rounded-2xl relative overflow-hidden animate-float" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 10px 40px rgba(102, 126, 234, 0.4)' }}>
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
               <span className="material-symbols-outlined !text-4xl text-white relative z-10">mail</span>
             </div>
@@ -360,8 +360,8 @@ export default function OnboardingPage() {
         {/* Login Card */}
         <div className="relative flex w-full max-w-md flex-col overflow-hidden glass-card rounded-3xl shadow-large animate-slide-up" style={{ backdropFilter: 'blur(20px)', background: 'rgba(255, 255, 255, 0.25)', border: '1px solid rgba(255, 255, 255, 0.18)' }}>
           {/* Header Section */}
-          <div className="p-8 pb-6 text-left">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl relative overflow-hidden animate-float" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 10px 40px rgba(102, 126, 234, 0.4)' }}>
+          <div className="p-8 pb-6 text-center">
+            <div className="mb-5 mx-auto flex h-16 w-16 items-center justify-center rounded-2xl relative overflow-hidden animate-float" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', boxShadow: '0 10px 40px rgba(102, 126, 234, 0.4)' }}>
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
               <span className="material-symbols-outlined !text-4xl text-white relative z-10">person</span>
             </div>
