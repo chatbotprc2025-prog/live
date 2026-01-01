@@ -75,8 +75,11 @@ export async function GET(request: NextRequest) {
     const lowerSubject = subject?.toLowerCase() || '';
     const lowerCategory = category?.toLowerCase() || '';
 
+    // Type helper to extract the type from Prisma query result
+    type AcademicPdfType = Awaited<ReturnType<typeof prisma.academicPdf.findMany>>[number];
+
     if (lowerKeyword || lowerSemester || lowerSubject || lowerCategory) {
-      academicPdfs = academicPdfs.filter((pdf) => {
+      academicPdfs = academicPdfs.filter((pdf: AcademicPdfType) => {
         if (lowerSemester && !pdf.semester?.toLowerCase().includes(lowerSemester)) {
           return false;
         }
