@@ -74,7 +74,11 @@ export default function OnboardingPage() {
 
       if (!registerResponse.ok) {
         const error = await registerResponse.json();
-        throw new Error(error.error || 'Registration failed');
+        // Show detailed error message including details if available
+        const errorMsg = error.error || 'Registration failed';
+        const details = error.details ? `\n\nDetails: ${error.details}` : '';
+        const code = error.code ? `\n\nError Code: ${error.code}` : '';
+        throw new Error(errorMsg + details + code);
       }
 
       const registerData = await registerResponse.json();

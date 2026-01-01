@@ -133,12 +133,28 @@ export async function POST(request: NextRequest) {
     // Return detailed error for debugging
     const errorMessage = error.message || 'Unknown error occurred';
     
+    // Log full error for debugging in Vercel logs
+    console.error('Full error object:', JSON.stringify(error, null, 2));
+    
+    // Provide more helpful error messages
+    let userFriendlyError = 'Failed to register user. Please try again.';
+    
+    if (error.message?.includes('table') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+      userFriendlyError = 'Database tables not found. Please run database migrations.';
+    } else if (error.message?.includes('connection') || error.message?.includes('timeout')) {
+      userFriendlyError = 'Database connection failed. Please check your database configuration.';
+    } else if (error.code) {
+      userFriendlyError = `Database error (${error.code}). Please contact support.`;
+    }
+    
     return NextResponse.json(
       { 
-        error: 'Failed to register user', 
-        details: process.env.NODE_ENV === 'development' ? errorMessage : 'Please try again or contact support',
+        error: userFriendlyError,
+        details: errorMessage, // Always include details for debugging
         code: error.code || 'UNKNOWN',
-        type: error.name || 'Error'
+        type: error.name || 'Error',
+        // Include stack trace in development
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
       },
       { status: 500 }
     );
