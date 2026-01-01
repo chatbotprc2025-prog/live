@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { AcademicPdf } from '@prisma/client';
 
 // GET - Search academic PDFs (student access)
 export async function GET(request: NextRequest) {
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
     const lowerCategory = category?.toLowerCase() || '';
 
     if (lowerKeyword || lowerSemester || lowerSubject || lowerCategory) {
-      academicPdfs = academicPdfs.filter((pdf) => {
+      academicPdfs = academicPdfs.filter((pdf: AcademicPdf) => {
         if (lowerSemester && !pdf.semester?.toLowerCase().includes(lowerSemester)) {
           return false;
         }
