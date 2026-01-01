@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ClientUser } from '@prisma/client';
 import prisma from '@/lib/prisma';
+
+// Type helper to extract the type from Prisma query result
+type ClientUserType = Awaited<ReturnType<typeof prisma.clientUser.findMany>>[number];
 
 export async function GET(request: NextRequest) {
   try {
     // Fetch all client users
-    const clientUsers = await prisma.clientUser.findMany({
+    const clientUsers: ClientUserType[] = await prisma.clientUser.findMany({
       orderBy: { createdAt: 'desc' },
     });
 
     // Build CSV content
     const csvHeaders = ['id', 'mobile', 'email', 'userType', 'createdAt'];
-    const csvRows = clientUsers.map((user: ClientUser) => [
+    const csvRows = clientUsers.map((user: ClientUserType) => [
       user.id,
       user.mobile,
       user.email,
