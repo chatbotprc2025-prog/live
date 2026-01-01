@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 // GET - Search academic PDFs (student access)
+// Types are inferred automatically from Prisma query results
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
